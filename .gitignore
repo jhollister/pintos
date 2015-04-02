@@ -1,0 +1,14 @@
+
+# vim swap files
+*.swp
+*.swo
+
+#object files
+*.o
+*.out
+build/*
+
+cscope.files
+cscope.out
+TAGS
+tags
