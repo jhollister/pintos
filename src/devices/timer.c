@@ -29,6 +29,10 @@ static bool too_many_loops (unsigned loops);
 static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 static void real_time_delay (int64_t num, int32_t denom);
+static bool compare (const struct list_elem *first, const struct list_elem *second, 
+                     void *aux);
+
+static struct list sleep_list;
 
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
    and registers the corresponding interrupt. */
@@ -37,6 +41,7 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
+  list_init (&sleep_list);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -89,17 +94,26 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
-  int64_t start = timer_ticks ();
-
+  int64_t start = timer_ticks () + ticks;
+  struct thread *t = thread_current ();
+  enum intr_level old_level = intr_get_level ();
+  t->awakeTime = start;
   ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
+
+  intr_disable ();
+
+  // ****** add to sleeping list ***********
+  list_push_back (&sleep_list, &t->elem);
+  list_insert_ordered (&sleep_list, &t->elem, compare, NULL);
+
+  thread_block ();
+  intr_set_level (old_level);
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
    turned on. */
 void
-timer_msleep (int64_t ms) 
+timer_msleep (int64_t ms)
 {
   real_time_sleep (ms, 1000);
 }
@@ -107,7 +121,7 @@ timer_msleep (int64_t ms)
 /* Sleeps for approximately US microseconds.  Interrupts must be
    turned on. */
 void
-timer_usleep (int64_t us) 
+timer_usleep (int64_t us)
 {
   real_time_sleep (us, 1000 * 1000);
 }
@@ -172,6 +186,10 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
+  /*if (!list_empty(&sleeping_list) {*/
+    /*struct list_elem *e;*/
+    /*e = list_begin(&sleeping_list);*/
+
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
@@ -244,3 +262,11 @@ real_time_delay (int64_t num, int32_t denom)
   ASSERT (denom % 1000 == 0);
   busy_wait (loops_per_tick * num / 1000 * TIMER_FREQ / (denom / 1000)); 
 }
+
+static bool
+compare (const struct list_elem *first, const struct list_elem *second,
+         void *aux UNUSED) {
+  return (list_entry(first, struct thread, sleepelem)->awakeTime <
+      list_entry(second, struct thread, sleepelem)->awakeTime);
+}
+
