@@ -94,17 +94,14 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
-  int64_t start = timer_ticks () + ticks;
   struct thread *t = thread_current ();
   enum intr_level old_level = intr_get_level ();
-  t->awakeTime = start;
-  ASSERT (intr_get_level () == INTR_ON);
+  t->awake_time = timer_ticks() + ticks;
+  ASSERT (old_level  == INTR_ON);
 
   intr_disable ();
 
-  // ****** add to sleeping list ***********
-  list_push_back (&sleep_list, &t->elem);
-  list_insert_ordered (&sleep_list, &t->elem, compare, NULL);
+  list_insert_ordered (&sleep_list, &t->sleepelem, compare, NULL);
 
   thread_block ();
   intr_set_level (old_level);
@@ -186,9 +183,18 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
-  /*if (!list_empty(&sleeping_list) {*/
-    /*struct list_elem *e;*/
-    /*e = list_begin(&sleeping_list);*/
+  struct thread *top_thread;
+  struct list_elem *e = list_begin(&sleep_list);
+  if (e != list_end(&sleep_list)) {
+    top_thread = list_entry(e, struct thread, sleepelem);
+  }
+  while (e != list_end(&sleep_list) && top_thread->awake_time <= ticks) {
+    thread_unblock(top_thread);
+    list_pop_front(&sleep_list);
+    e = list_begin(&sleep_list);
+    top_thread = list_entry(e, struct thread, sleepelem);
+  }
+
 
 }
 
@@ -266,7 +272,7 @@ real_time_delay (int64_t num, int32_t denom)
 static bool
 compare (const struct list_elem *first, const struct list_elem *second,
          void *aux UNUSED) {
-  return (list_entry(first, struct thread, sleepelem)->awakeTime <
-      list_entry(second, struct thread, sleepelem)->awakeTime);
+  return (list_entry(first, struct thread, sleepelem)->awake_time <
+      list_entry(second, struct thread, sleepelem)->awake_time);
 }
 
