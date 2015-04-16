@@ -60,6 +60,7 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
 bool thread_mlfqs;
 
 static void kernel_thread (thread_func *, void *aux);
+static bool priority_compare (const struct list_elem *first, const struct list_elem *second, void *aux);
 
 static void idle (void *aux UNUSED);
 static struct thread *running_thread (void);
@@ -344,6 +345,9 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+  struct thread *max = list_entry(list_max (&ready_list, priority_compare, NULL), struct thread, elem);
+  if(new_priority < max->priority)
+    thread_yield();
 }
 
 /* Returns the current thread's priority. */
@@ -495,8 +499,20 @@ next_thread_to_run (void)
 {
   if (list_empty (&ready_list))
     return idle_thread;
-  else
-    return list_entry (list_pop_front (&ready_list), struct thread, elem);
+  else {
+    struct list_elem *max = list_max (&ready_list, priority_compare, NULL);
+    struct thread *max_thread = list_entry(max, struct thread, elem);
+    list_remove(max);
+    return max_thread;
+    //return list_entry (list_pop_front (&ready_list), struct thread, elem);
+  }
+}
+
+static bool
+priority_compare (const struct list_elem *first, const struct list_elem *second,
+         void *aux UNUSED) {
+  return (list_entry(first, struct thread, elem)->priority <
+          list_entry(second, struct thread, elem)->priority);
 }
 
 /* Completes a thread switch by activating the new thread's page
