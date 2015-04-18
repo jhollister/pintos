@@ -16,10 +16,13 @@ Roberto Pasillas <rpasi001@ucr.edu>
 >> If you have any preliminary comments on your submission, notes for the
 >> TAs, or extra credit, please give them here.
 
+None. 
+
 >> Please cite any offline or online sources you consulted while
 >> preparing your submission, other than the Pintos documentation, course
 >> text, lecture notes, and course staff.
 
+None.
 			     ALARM CLOCK
 			     ===========
 
@@ -29,26 +32,73 @@ Roberto Pasillas <rpasi001@ucr.edu>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+static struct list sleep_list;
+/*
+The list structure was required to keep track of sleeping threads , without utilizing the cpu 
+using the busy wait as previously implemented. 
+*/
+
+struct thread
+{
+...
+int64_t awakeTime;                  /* Time to awake thread if sleeping */
+struct list_elem sleepelem;         /* List element for sleeping list */
+...
+}
+/*
+Added awake_time which holds the amount of ticks that would need to have occured in order 
+for the thread  to wake up if it was sleeping.
+Added sleepelem that is needed for the sleep list above.
+*/
+
 ---- ALGORITHMS ----
 
 >> A2: Briefly describe what happens in a call to timer_sleep(),
 >> including the effects of the timer interrupt handler.
 
+First we save the current interrupt status
+
+Then we set the current threads awake time to equal the current ticks
+plus the ticks given as a parameter to the function call.
+
+Then we disble interrups so that the we can have exclusive access to the list elements.
+
+Then we do a sorted insert , where the sorting is based on the awake time , from high to low.
+
+Then we block the thread.
+
+Then re-set interrupts to the original level.
+
 >> A3: What steps are taken to minimize the amount of time spent in
 >> the timer interrupt handler?
+
+Since we have a sorted list based on the sorted insertions, we just need to check the top most elements of our
+list to see if we need to awake the thread, rather then checking the entire list for the same check.
 
 ---- SYNCHRONIZATION ----
 
 >> A4: How are race conditions avoided when multiple threads call
 >> timer_sleep() simultaneously?
 
+Through the use of system interrupts , we disable the context switcihing by disabling interrupts we accessing the 
+shared resource sleeplist. Once we are done using the shared resource, we enable to the previous state.
+
 >> A5: How are race conditions avoided when a timer interrupt occurs
 >> during a call to timer_sleep()?
+
+By obtaining our sorting element timer_ticks() and inserting into our sleep list when interrupts are diabled, 
+we ensure that we don't have race condition about our shared resources.
 
 ---- RATIONALE ----
 
 >> A6: Why did you choose this design?  In what ways is it superior to
 >> another design you considered?
+
+We chose to implent using sorted insert because that would have a runtime of O(n) when inserting, 
+but would allow for constant access time for the next element we need to access.
+
+Another possible implementation was to insert unsorted , which would be a constant time insert, 
+but O(n) access time. But we need to access elements at every tick, giving us a less efficient implementation.
 
 			 PRIORITY SCHEDULING
 			 ===================
@@ -149,14 +199,26 @@ the quarter.
 >> In your opinion, was this assignment, or any one of the three problems
 >> in it, too easy or too hard?  Did it take too long or too little time?
 
+We haven't finished the project yet so we don't know if it took too long. The complexity of this 
+project is understanding the syntax , combined with new concept implementation.  So far this seems managable.
+
 >> Did you find that working on a particular part of the assignment gave
 >> you greater insight into some aspect of OS design?
+
+Learning theory is great, but theory implementation gives further insight into the concepts as one must
+think about implementation issues that arise and the associated solutions.
 
 >> Is there some particular fact or hint we should give students in
 >> future quarters to help them solve the problems?  Conversely, did you
 >> find any of our guidance to be misleading?
 
+The guidance from the TA was very leading and helped our team focus on the implementation, instead of 
+spending time finding the focus area. We still had to think of the solution so this help was great.
+
 >> Do you have any suggestions for the TAs to more effectively assist
 >> students, either for future quarters or the remaining projects?
 
+Clear guidance as was given in project 1 will help with the subsequent projects. So far the guidance has been on point.
+
 >> Any other comments?
+
