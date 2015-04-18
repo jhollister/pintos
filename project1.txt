@@ -109,20 +109,40 @@ but O(n) access time. But we need to access elements at every tick, giving us a 
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+//place holder****************************************************************************
+
 >> B2: Explain the data structure used to track priority donation.
 >> Use ASCII art to diagram a nested donation.  (Alternately, submit a
 >> .png file.)
+
+SEE ATTACHED PNG
+
+The attached image shows our structure implementation to realize the priority scheduler.
+
+First, our thread structure will have a list of pointers to locks that it is holding.
+Note: Only running threads can be lock holders, threads waiting on a lock are not considered lock holders.
+
+Using the list of lock pointers, we can reference the waiting threads of the lock to determine the maximum priority 
+that can be donated and see whats greater , the currently set priority or the donated priority. Although we will 
+not change the priority of the running proccess, we will have a reference to this higher donated priority.
 
 ---- ALGORITHMS ----
 
 >> B3: How do you ensure that the highest priority thread waiting for
 >> a lock, semaphore, or condition variable wakes up first?
 
+The locking structure has a list of waiting threads, and we extract the thread with the highest priority, 
+including donated priority.
+
 >> B4: Describe the sequence of events when a call to lock_acquire()
 >> causes a priority donation.  How is nested donation handled?
 
+//
+
 >> B5: Describe the sequence of events when lock_release() is called
 >> on a lock that a higher-priority thread is waiting for.
+
+//
 
 ---- SYNCHRONIZATION ----
 
