@@ -343,7 +343,7 @@ thread_foreach (thread_action_func *func, void *aux)
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
-/* TODO: Fix rance condition? */
+/* TODO: Fix race condition? */
 void
 thread_set_priority (int new_priority) 
 {
@@ -361,7 +361,7 @@ thread_get_priority (void)
 }
 
 /* Returns a thread's donated priority */
-/* TODO: Recursively find the largest donated priority */
+/* TODO: Recursively find the largest donated priority using the donor list */
 static int
 thread_get_donated_priority (struct thread *t)
 {

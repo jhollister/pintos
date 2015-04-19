@@ -195,6 +195,7 @@ lock_init (struct lock *lock)
    interrupt handler.  This function may be called with
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
+/* TODO: Add the lock to the donor list when a thread becomes a holder */
 void
 lock_acquire (struct lock *lock)
 {
@@ -212,6 +213,7 @@ lock_acquire (struct lock *lock)
 
    This function will not sleep, so it may be called within an
    interrupt handler. */
+/* TODO: Add the lock to the donor list when a thread becomes a holder */
 bool
 lock_try_acquire (struct lock *lock)
 {
@@ -231,6 +233,7 @@ lock_try_acquire (struct lock *lock)
    An interrupt handler cannot acquire a lock, so it does not
    make sense to try to release a lock within an interrupt
    handler. */
+/* TODO: Remove lock from donor list */
 void
 lock_release (struct lock *lock) 
 {
