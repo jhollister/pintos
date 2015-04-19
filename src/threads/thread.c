@@ -249,6 +249,8 @@ thread_unblock (struct thread *t)
   list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
   intr_set_level (old_level);
+  if (thread_current() != idle_thread)
+    thread_yield();
 }
 
 /* Returns the name of the running thread. */
@@ -356,6 +358,7 @@ thread_get_priority (void)
 {
   return thread_current ()->priority;
 }
+
 
 /* Sets the current thread's nice value to NICE. */
 void
