@@ -109,7 +109,15 @@ but O(n) access time. But we need to access elements at every tick, giving us a 
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
-//place holder****************************************************************************
+struct thread
+{
+...
+static struct list lcoks;
+...
+}
+
+This list will be a list of locks that the thread currently holds. Used to access the threads
+currently waiting on the lock to get a donated priority.
 
 >> B2: Explain the data structure used to track priority donation.
 >> Use ASCII art to diagram a nested donation.  (Alternately, submit a
