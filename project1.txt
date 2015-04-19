@@ -137,7 +137,13 @@ including donated priority.
 >> B4: Describe the sequence of events when a call to lock_acquire()
 >> causes a priority donation.  How is nested donation handled?
 
-//
+When a thread calls lock_acquire() it will attempt to take the lock, if it takes the lock it
+will then lock structure will be added to its donations list. This way, each lock that a thread holds 
+will be kept track of. Each lock in turn has a list of waiters that can be accessed in the get_priority
+function to return the donated priority.
+For nested donations the get_priority() function will recursively access the donated priority of each thread
+in the wait list.
+
 
 >> B5: Describe the sequence of events when lock_release() is called
 >> on a lock that a higher-priority thread is waiting for.
