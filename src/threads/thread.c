@@ -60,7 +60,6 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
 bool thread_mlfqs;
 
 static void kernel_thread (thread_func *, void *aux);
-static bool priority_compare (const struct list_elem *first, const struct list_elem *second, void *aux);
 
 static void idle (void *aux UNUSED);
 static struct thread *running_thread (void);
@@ -71,6 +70,7 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+static int thread_get_donated_priority (struct thread *t);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -362,7 +362,7 @@ thread_get_priority (void)
 
 /* Returns a thread's donated priority */
 /* TODO: Recursively find the largest donated priority */
-int
+static int
 thread_get_donated_priority (struct thread *t)
 {
   return t->priority;
@@ -520,12 +520,12 @@ next_thread_to_run (void)
 }
 
 /* Returns true if the first thread element has a lower priority */
-static bool
+bool
 priority_compare (const struct list_elem *first, const struct list_elem *second,
                   void *aux UNUSED) {
   struct thread *first_t = list_entry(first, struct thread, elem);
   struct thread *second_t = list_entry(second, struct thread, elem);
-  return (thread_get_donated_priority(first) < thread_get_donated_priority(second));
+  return (thread_get_donated_priority(first_t) < thread_get_donated_priority(second_t));
 }
 
 /* Completes a thread switch by activating the new thread's page
