@@ -112,7 +112,7 @@ but O(n) access time. But we need to access elements at every tick, giving us a 
 struct thread
 {
 ...
-static struct list lcoks;
+static struct list locks;
 ...
 }
 
