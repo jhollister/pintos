@@ -148,7 +148,9 @@ in the wait list.
 >> B5: Describe the sequence of events when lock_release() is called
 >> on a lock that a higher-priority thread is waiting for.
 
-//
+When lock_release() is called the lock holder will remove the current lock from its donation list. When
+the get_priority() function is called next on this thread it will return a lower priority because the higher priority
+thread will no longer be waiting on it.
 
 ---- SYNCHRONIZATION ----
 
