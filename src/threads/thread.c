@@ -343,12 +343,13 @@ thread_foreach (thread_action_func *func, void *aux)
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
+/* TODO: Fix rance condition? */
 void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
   struct thread *max = list_entry(list_max (&ready_list, priority_compare, NULL), struct thread, elem);
-  if(new_priority < max->priority)
+  if(thread_get_priority() < thread_get_donated_priority(max))
     thread_yield();
 }
 
@@ -356,7 +357,15 @@ thread_set_priority (int new_priority)
 int
 thread_get_priority (void) 
 {
-  return thread_current ()->priority;
+  return thread_get_donated_priority(thread_current());
+}
+
+/* Returns a thread's donated priority */
+/* TODO: Recursively find the largest donated priority */
+int
+thread_get_donated_priority (struct thread *t)
+{
+  return t->priority;
 }
 
 
@@ -507,15 +516,16 @@ next_thread_to_run (void)
     struct thread *max_thread = list_entry(max, struct thread, elem);
     list_remove(max);
     return max_thread;
-    //return list_entry (list_pop_front (&ready_list), struct thread, elem);
   }
 }
 
+/* Returns true if the first thread element has a lower priority */
 static bool
 priority_compare (const struct list_elem *first, const struct list_elem *second,
-         void *aux UNUSED) {
-  return (list_entry(first, struct thread, elem)->priority <
-          list_entry(second, struct thread, elem)->priority);
+                  void *aux UNUSED) {
+  struct thread *first_t = list_entry(first, struct thread, elem);
+  struct thread *second_t = list_entry(second, struct thread, elem);
+  return (thread_get_donated_priority(first) < thread_get_donated_priority(second));
 }
 
 /* Completes a thread switch by activating the new thread's page
