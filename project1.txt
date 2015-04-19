@@ -149,6 +149,7 @@ When a thread calls lock_acquire() it will attempt to take the lock, if it takes
 will then lock structure will be added to its donations list. This way, each lock that a thread holds 
 will be kept track of. Each lock in turn has a list of waiters that can be accessed in the get_priority
 function to return the donated priority.
+
 For nested donations the get_priority() function will recursively access the donated priority of each thread
 in the wait list.
 
@@ -156,9 +157,16 @@ in the wait list.
 >> B5: Describe the sequence of events when lock_release() is called
 >> on a lock that a higher-priority thread is waiting for.
 
-When lock_release() is called the lock holder will remove the current lock from its donation list. When
-the get_priority() function is called next on this thread it will return a lower priority because the higher priority
-thread will no longer be waiting on it.
+To determine priority, we look at the return the max of the set priority vs the donated recursive get_priority(), 
+after the lock is removed the get_priority() function will no longer have access to the locks waiting list, and thus
+won't have access to the donated priority.
+
+In terms of the locking thread, the release will set the pointer to the lock to null and lose reference to the
+waiting list. So the thread will now run under its given priority.
+
+In terms of the lock, waiting list will be searched to determine the higherst priority, including donated priorities 
+from other held locks. The higherst priority thread will then be set as the lock holder.
+
 
 ---- SYNCHRONIZATION ----
 
@@ -166,10 +174,29 @@ thread will no longer be waiting on it.
 >> how your implementation avoids it.  Can you use a lock to avoid
 >> this race?
 
+Given that a function can call set priority on a thread, we could have the posibility of simultaniously setting
+the priority variable of a thread. This variable could have a race condition. To avoid this race condition, we set 
+the critical section of the function to run with interrupts off. This will give the function exclusive access to the 
+priority, giving us an atomic region for the function.
+
 ---- RATIONALE ----
 
 >> B7: Why did you choose this design?  In what ways is it superior to
 >> another design you considered?
+
+Our implementation had in mind that we wanted to prevent a thread from accessing cpu time , thus we needed a 
+waiting structure to hold threads. Furthermore we needed an association between threads and locks to determine 
+donated priority.
+
+Our implementation was to save the waiting threads in the lock and add a pointer to the the lock to the holding 
+thread. We concluded that this was an optimal solution as it removes threads from busy waiting cpu time and instead
+focuses resources completing lock holding threads.
+
+We did consider a thread_yield approach for threads that we on a waiting list. The pros were that most of the 
+functionallity is already built in, the cons was that it is not optimal.
+
+A possible draw back with our implementation is that if a locking thread never completes, neither will the waiting
+threads, but thats inherent with locks.
 
 			  ADVANCED SCHEDULER
 			    (If Attempted)
