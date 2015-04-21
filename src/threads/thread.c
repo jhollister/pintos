@@ -70,6 +70,7 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+static int thread_get_donated_priority (struct thread *t);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -184,6 +185,7 @@ thread_create (const char *name, int priority,
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
 
+
   /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack' 
      member cannot be observed. */
@@ -248,6 +250,8 @@ thread_unblock (struct thread *t)
   list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
   intr_set_level (old_level);
+  if (thread_current() != idle_thread)
+    thread_yield();
 }
 
 /* Returns the name of the running thread. */
@@ -344,14 +348,44 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+  thread_yield();
 }
 
 /* Returns the current thread's priority. */
 int
 thread_get_priority (void) 
 {
-  return thread_current ()->priority;
+  return thread_get_donated_priority(thread_current());
 }
+
+/* Returns a thread's donated priority */
+static int
+thread_get_donated_priority (struct thread *t)
+{
+  if (list_empty(&t->locks_held)) {
+    return t->priority;
+  }
+  int max = t->priority;
+  struct list_elem *e;
+  for (e = list_begin(&t->locks_held); e != list_end(&t->locks_held);
+       e = list_next(e)) {
+    struct lock *lock = list_entry(e, struct lock, elem);
+    // get the list of threads waiting on the lock
+    struct semaphore *sema = &lock->semaphore;
+    struct list *wait_list = &sema->waiters;
+    if (!list_empty(wait_list)) {
+      struct list_elem *l;
+      for (l = list_begin(wait_list); l != list_end(wait_list);
+           l = list_next(l)) {
+        int pri = thread_get_donated_priority(list_entry(l, struct thread, elem));
+        if (pri > max)
+          max = pri;
+      }
+    }
+  }
+  return max;
+}
+
 
 /* Sets the current thread's nice value to NICE. */
 void
@@ -470,6 +504,9 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
   list_push_back (&all_list, &t->allelem);
+
+  /* Initialize donation list */
+  list_init (&t->locks_held);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -495,8 +532,21 @@ next_thread_to_run (void)
 {
   if (list_empty (&ready_list))
     return idle_thread;
-  else
-    return list_entry (list_pop_front (&ready_list), struct thread, elem);
+  else {
+    struct list_elem *max = list_max (&ready_list, priority_compare, NULL);
+    struct thread *max_thread = list_entry(max, struct thread, elem);
+    list_remove(max);
+    return max_thread;
+  }
+}
+
+/* Returns true if the first thread element has a lower priority */
+bool
+priority_compare (const struct list_elem *first, const struct list_elem *second,
+                  void *aux UNUSED) {
+  struct thread *first_t = list_entry(first, struct thread, elem);
+  struct thread *second_t = list_entry(second, struct thread, elem);
+  return (thread_get_donated_priority(first_t) < thread_get_donated_priority(second_t));
 }
 
 /* Completes a thread switch by activating the new thread's page

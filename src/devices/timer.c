@@ -29,7 +29,7 @@ static bool too_many_loops (unsigned loops);
 static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 static void real_time_delay (int64_t num, int32_t denom);
-static bool compare (const struct list_elem *first, const struct list_elem *second, 
+static bool time_compare (const struct list_elem *first, const struct list_elem *second, 
                      void *aux);
 
 static struct list sleep_list;
@@ -101,7 +101,7 @@ timer_sleep (int64_t ticks)
 
   intr_disable ();
 
-  list_insert_ordered (&sleep_list, &t->sleepelem, compare, NULL);
+  list_insert_ordered (&sleep_list, &t->sleepelem, time_compare, NULL);
 
   thread_block ();
   intr_set_level (old_level);
@@ -270,7 +270,7 @@ real_time_delay (int64_t num, int32_t denom)
 }
 
 static bool
-compare (const struct list_elem *first, const struct list_elem *second,
+time_compare (const struct list_elem *first, const struct list_elem *second,
          void *aux UNUSED) {
   return (list_entry(first, struct thread, sleepelem)->awake_time <
       list_entry(second, struct thread, sleepelem)->awake_time);

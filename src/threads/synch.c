@@ -32,6 +32,9 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
+static bool sema_compare (const struct list_elem *first, 
+                          const struct list_elem *second,void *aux UNUSED);
+
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
    manipulating it:
@@ -113,10 +116,13 @@ sema_up (struct semaphore *sema)
   ASSERT (sema != NULL);
 
   old_level = intr_disable ();
-  if (!list_empty (&sema->waiters)) 
-    thread_unblock (list_entry (list_pop_front (&sema->waiters),
-                                struct thread, elem));
   sema->value++;
+  if (!list_empty (&sema->waiters)) {
+    struct list_elem *max = list_max (&sema->waiters, priority_compare, NULL);
+    struct thread *max_thread = list_entry(max, struct thread, elem);
+    list_remove(max);
+    thread_unblock (max_thread);
+  }
   intr_set_level (old_level);
 }
 
@@ -197,7 +203,9 @@ lock_acquire (struct lock *lock)
   ASSERT (!lock_held_by_current_thread (lock));
 
   sema_down (&lock->semaphore);
-  lock->holder = thread_current ();
+  struct thread *t = thread_current();
+  list_push_back(&t->locks_held, &lock->elem);
+  lock->holder = t;
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -230,6 +238,21 @@ lock_release (struct lock *lock)
 {
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
+  ASSERT (!list_empty(&thread_current()->locks_held));
+
+  struct thread *t = thread_current();
+  bool done = false;
+  struct list_elem *e = list_begin(&t->locks_held);
+  while (!done) {
+    if (e == list_end(&t->locks_held)) {
+      done = false;
+    }
+    else if (list_entry(e, struct lock, elem) == lock) {
+      list_remove(e);
+      done = true;
+    }
+    e = list_next(e);
+  }
 
   lock->holder = NULL;
   sema_up (&lock->semaphore);
@@ -316,9 +339,22 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
   ASSERT (!intr_context ());
   ASSERT (lock_held_by_current_thread (lock));
 
-  if (!list_empty (&cond->waiters)) 
-    sema_up (&list_entry (list_pop_front (&cond->waiters),
-                          struct semaphore_elem, elem)->semaphore);
+  if (!list_empty (&cond->waiters)) {
+    struct list_elem *max = list_max (&cond->waiters, sema_compare, NULL);
+    struct semaphore *max_sema = &list_entry(max, struct semaphore_elem, elem)->semaphore;
+    list_remove(max);
+    sema_up(max_sema);
+  }
+}
+
+static bool
+sema_compare (const struct list_elem *first, const struct list_elem *second,
+              void *aux UNUSED) {
+  struct semaphore *first_s = &list_entry(first, struct semaphore_elem, elem)->semaphore;
+  struct semaphore *second_s = &list_entry(second, struct semaphore_elem, elem)->semaphore;
+  struct list_elem *first_t = list_max(&first_s->waiters, priority_compare, NULL);
+  struct list_elem *second_t = list_max(&second_s->waiters, priority_compare, NULL);
+  return priority_compare(first_t, second_t, NULL);
 }
 
 /* Wakes up all threads, if any, waiting on COND (protected by
