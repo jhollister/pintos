@@ -195,7 +195,6 @@ lock_init (struct lock *lock)
    interrupt handler.  This function may be called with
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
-/* TODO: Add the lock to the donor list when a thread becomes a holder */
 void
 lock_acquire (struct lock *lock)
 {
@@ -204,7 +203,9 @@ lock_acquire (struct lock *lock)
   ASSERT (!lock_held_by_current_thread (lock));
 
   sema_down (&lock->semaphore);
-  lock->holder = thread_current ();
+  struct thread *t = thread_current();
+  list_push_back(&t->locks_held, &lock->elem);
+  lock->holder = t;
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -213,7 +214,6 @@ lock_acquire (struct lock *lock)
 
    This function will not sleep, so it may be called within an
    interrupt handler. */
-/* TODO: Add the lock to the donor list when a thread becomes a holder */
 bool
 lock_try_acquire (struct lock *lock)
 {
@@ -233,12 +233,26 @@ lock_try_acquire (struct lock *lock)
    An interrupt handler cannot acquire a lock, so it does not
    make sense to try to release a lock within an interrupt
    handler. */
-/* TODO: Remove lock from donor list */
 void
 lock_release (struct lock *lock) 
 {
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
+  ASSERT (!list_empty(&thread_current()->locks_held));
+
+  struct thread *t = thread_current();
+  bool done = false;
+  struct list_elem *e = list_begin(&t->locks_held);
+  while (!done) {
+    if (e == list_end(&t->locks_held)) {
+      done = false;
+    }
+    else if (list_entry(e, struct lock, elem) == lock) {
+      list_remove(e);
+      done = true;
+    }
+    e = list_next(e);
+  }
 
   lock->holder = NULL;
   sema_up (&lock->semaphore);

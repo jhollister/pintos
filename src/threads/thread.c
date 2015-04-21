@@ -185,6 +185,7 @@ thread_create (const char *name, int priority,
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
 
+
   /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack' 
      member cannot be observed. */
@@ -343,14 +344,11 @@ thread_foreach (thread_action_func *func, void *aux)
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
-/* TODO: Fix race condition? */
 void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
-  struct thread *max = list_entry(list_max (&ready_list, priority_compare, NULL), struct thread, elem);
-  if(thread_get_priority() < thread_get_donated_priority(max))
-    thread_yield();
+  thread_yield();
 }
 
 /* Returns the current thread's priority. */
@@ -361,11 +359,31 @@ thread_get_priority (void)
 }
 
 /* Returns a thread's donated priority */
-/* TODO: Recursively find the largest donated priority using the donor list */
 static int
 thread_get_donated_priority (struct thread *t)
 {
-  return t->priority;
+  if (list_empty(&t->locks_held)) {
+    return t->priority;
+  }
+  int max = t->priority;
+  struct list_elem *e;
+  for (e = list_begin(&t->locks_held); e != list_end(&t->locks_held);
+       e = list_next(e)) {
+    struct lock *lock = list_entry(e, struct lock, elem);
+    // get the list of threads waiting on the lock
+    struct semaphore *sema = &lock->semaphore;
+    struct list *wait_list = &sema->waiters;
+    if (!list_empty(wait_list)) {
+      struct list_elem *l;
+      for (l = list_begin(wait_list); l != list_end(wait_list);
+           l = list_next(l)) {
+        int pri = thread_get_donated_priority(list_entry(l, struct thread, elem));
+        if (pri > max)
+          max = pri;
+      }
+    }
+  }
+  return max;
 }
 
 
@@ -486,6 +504,9 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
   list_push_back (&all_list, &t->allelem);
+
+  /* Initialize donation list */
+  list_init (&t->locks_held);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
