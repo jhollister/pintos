@@ -16,7 +16,7 @@ signed int.
 //***************** CONVERSIONS ***************************
 
 //INT 2 FLOAT
-#define INT2FLOAT(x) ((x) > 262143) ? (x) : ((x)*shift)
+#define INT2FLOAT(x) ((x)*shift)
 
 //FLOAT 2 INT ROUNDED
 #define FLOAT2INTR(x) (((x)>=0 ) ? (((x)+round)/shift) : (((x)-round)/shift))

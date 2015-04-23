@@ -11,6 +11,8 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "devices/timer.h"
+#include "threads/fixed-point.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -49,6 +51,7 @@ struct kernel_thread_frame
 static long long idle_ticks;    /* # of timer ticks spent idle. */
 static long long kernel_ticks;  /* # of timer ticks in kernel threads. */
 static long long user_ticks;    /* # of timer ticks in user programs. */
+static int load_avg;        /* System wide load average */
 
 /* Scheduling. */
 #define TIME_SLICE 4            /* # of timer ticks to give each thread. */
@@ -94,6 +97,8 @@ thread_init (void)
   list_init (&ready_list);
   list_init (&all_list);
 
+  load_avg = INT2FLOAT(0);
+
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
@@ -135,6 +140,17 @@ thread_tick (void)
   else
     kernel_ticks++;
 
+  /* Calculate load_average */
+  if (thread_mlfqs && (timer_ticks() % TIMER_FREQ == 0)) {
+    int ready_threads = list_size(&ready_list);
+    if (thread_current() != idle_thread) {
+      ready_threads++;
+    }
+
+    load_avg = MULTFF(INT2FLOAT(59)/60, load_avg) +
+                   (INT2FLOAT(1)/60)*ready_threads;
+    printf("New load_avg: %d\n ready_threads size:%d\n", load_avg, ready_threads);
+  }
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
@@ -250,7 +266,7 @@ thread_unblock (struct thread *t)
   list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
   intr_set_level (old_level);
-  if (thread_current() != idle_thread)
+  if ((thread_current() != idle_thread) && !intr_context())
     thread_yield();
 }
 
@@ -407,7 +423,9 @@ int
 thread_get_load_avg (void) 
 {
   /* Not yet implemented. */
-  return 0;
+  int load = FLOAT2INTR(load_avg*100);
+  printf("Load average: %d\n", load);
+  return FLOAT2INTR(load_avg*100);
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
