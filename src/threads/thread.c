@@ -152,7 +152,7 @@ thread_tick (void)
   
    /* calculate load average */
 	 int ready_threads = list_size(&ready_list);
-    if (thread_current() != idle_thread && !ready_threads) {
+    if (thread_current() != idle_thread ) {
       ready_threads++;
     }
     load_avg = MULTFF(INT2FLOAT(59)/60, load_avg) +
@@ -303,7 +303,7 @@ thread_unblock (struct thread *t)
   list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
   intr_set_level (old_level);
-  if ((thread_current() != idle_thread) && !intr_context() && !thread_mlfqs)
+  if ((thread_current() != idle_thread) && !intr_context() )
     thread_yield();
 }
 
@@ -415,7 +415,7 @@ thread_get_priority (void)
 static int
 thread_get_donated_priority (struct thread *t)
 {
-  if (list_empty(&t->locks_held)) {
+  if (list_empty(&t->locks_held) || thread_mlfqs) {
     return t->priority;
   }
   int max = t->priority;
