@@ -139,21 +139,60 @@ thread_tick (void)
 #endif
   else
     kernel_ticks++;
+	
+	if(thread_mlfqs)
+		t->recent_cpu = ADDFI(t->recent_cpu,1);
 
-  /* Calculate load_average */
-  if (thread_mlfqs && (timer_ticks() % TIMER_FREQ == 0)) {
-    int ready_threads = list_size(&ready_list);
-    if (thread_current() != idle_thread) {
-      ready_threads++;
-    }
-
-    load_avg = MULTFF(INT2FLOAT(59)/60, load_avg) +
-                   (INT2FLOAT(1)/60)*ready_threads;
-    printf("New load_avg: %d\n ready_threads size:%d\n", load_avg, ready_threads);
-  }
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
+  /* Calculate load_average */
+  if (thread_mlfqs && (timer_ticks() % TIMER_FREQ == 0)) {
+  
+	/* calculate load average */
+	 int ready_threads = list_size(&ready_list);
+    if (thread_current() != idle_thread && !ready_threads) {
+      ready_threads++;
+    }
+	load_avg = MULTFF(INT2FLOAT(59)/60, load_avg) +
+                   (INT2FLOAT(1)/60)*ready_threads;
+	
+	/* Calculate Recent CPU - ALL Threads */
+	struct list_elem *e;
+	for(e = list_begin(&all_list); e != list_end(&all_list); e = list_next(e))
+	{
+		//recent_cpu = (2*load_avg)/(2*load_avg + 1) * recent_cpu + nice.
+		int64_t tmp_r_cpu = list_entry(e,struct thread, allelem)->recent_cpu;
+		int32_t tmp_nice = list_entry(e,struct thread, allelem)->nice;
+		tmp_r_cpu = ADDFI(MULTFF(DIVFF(load_avg*2,ADDFI(load_avg*2,1)),tmp_r_cpu),tmp_nice);
+		printf("recent_cpu: %d load_avg: %d nice: %d\n",tmp_r_cpu,load_avg,tmp_nice);
+		list_entry(e,struct thread, allelem)->recent_cpu = tmp_r_cpu;
+	}
+
+    //printf("New load_avg: %d\n ready_threads size:%d\n", load_avg, ready_threads);
+  }
+	
+	/* Update Priority for all threads */
+	if(thread_mlfqs && (timer_ticks()% TIMER_FREQ == 0))
+	{
+		struct list_elem *e;
+		for(e = list_begin(&all_list); e != list_end(&all_list); e = list_next(e))
+		{
+			if(list_entry(e,struct thread,allelem) == idle_thread)
+				continue;
+			/*priority = PRI_MAX - (recent_cpu / 4) - (nice * 2).*/
+			int64_t old_recent_cpu = list_entry(e,struct thread, allelem)->recent_cpu;
+			int32_t old_nice = list_entry(e,struct thread, allelem)->nice;
+			int new_priority = 63 - FLOAT2INTR(old_recent_cpu/4) - (old_nice*2);
+
+			if(new_priority > PRI_MAX)
+				new_priority = PRI_MAX;
+			if(new_priority < PRI_MIN)
+				new_priority = PRI_MIN;
+
+			list_entry(e,struct thread, allelem)->priority = new_priority;
+		}
+	}
 }
 
 /* Prints thread statistics. */
@@ -266,7 +305,7 @@ thread_unblock (struct thread *t)
   list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
   intr_set_level (old_level);
-  if ((thread_current() != idle_thread) && !intr_context())
+  if ((thread_current() != idle_thread) && !intr_context() && !thread_mlfqs)
     thread_yield();
 }
 
@@ -407,22 +446,25 @@ thread_get_donated_priority (struct thread *t)
 void
 thread_set_nice (int nice UNUSED) 
 {
-  /* Not yet implemented. */
+	if(nice > 20)
+		thread_current()->nice = 20;
+	else if(nice < -20)
+		thread_current()->nice = -20;
+	else
+		thread_current()->nice = nice;  
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return thread_current()->nice;
 }
 
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void) 
 {
-  /* Not yet implemented. */
   int load = FLOAT2INTR(load_avg*100);
   printf("Load average: %d\n", load);
   return FLOAT2INTR(load_avg*100);
@@ -432,7 +474,7 @@ thread_get_load_avg (void)
 int
 thread_get_recent_cpu (void) 
 {
-  /* Not yet implemented. */
+	//return FLOAT2INTR(thread_current()->recent_cpu*100);
   return 0;
 }
 

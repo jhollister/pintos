@@ -11,7 +11,7 @@ signed int.
 */
 #define shift 16384
 
-#define round 8192
+#define round 8192/8
 
 //***************** CONVERSIONS ***************************
 

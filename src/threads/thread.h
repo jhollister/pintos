@@ -92,6 +92,10 @@ struct thread
     struct list locks_held;             /* List to keep track of all locks for donations */
     struct list_elem allelem;           /* List element for all threads list. */
 
+	int32_t nice;						/* int for niceness (cpu utilization aggressiveness)*/
+	int64_t sleep_ticks;				/* long to count sleeping ticks */
+	int64_t recent_cpu;					/* long to track cpu utilization */
+
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
     struct list_elem sleepelem;         /* List element for sleeping list */
