@@ -250,17 +250,17 @@ ticks   A   B   C   A   B   C   to run
 
 The functions were pretty straight forward, but when and how often to call them
 was the challenging part. The guidance led us to implement the functions in the 
-timer_tick() function, which is called by the interrupt.so in essence it works with the interrupt.
-Having the tick functions run with functions was key to proper value allocation with time
-as crucial component.
+thread_tick() function, which is called by the timer interrupt so in essence it works with the interrupt.
+Having the tick functions run at the correct time was key to proper value allocation.
+Following the specifications very closely in this way resulted in a very similar behavior to the given tables.
 
 >> C4: How is the way you divided the cost of scheduling between code
 >> inside and outside interrupt context likely to affect performance?
 
 A potential draw back to our implementation is that having too many functions could cause the
-interrupt function to interrupt itself. Given this constraint, we checked whether we needed to 
-run the calculations or not by looking at the assertion variables. This way if the calculations are not needed
-we don't waste CPU resources calculating said values.
+interrupt function to interrupt itself. Given this constraint, we checked whether it was absolutely necesasry to 
+run the calculations in the interrupt. Because we used a sorted list in our alarm clock part of this project
+we were able to save some time for our scheduling functions.
 
 ---- RATIONALE ----
 
