@@ -208,6 +208,21 @@ threads, but thats inherent with locks.
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+struct thread 
+{
+...
+int32_t nice;
+int64_t recent_cpu;
+...
+}
+
+Both nice and cpu are thread specific values that need to be stored for
+the advanced scheduler.
+
+static int load_avg;
+
+A static integer to keep track of the total load average of the system.
+
 ---- ALGORITHMS ----
 
 >> C2: Suppose threads A, B, and C have nice values 0, 1, and 2.  Each
@@ -218,8 +233,8 @@ threads, but thats inherent with locks.
 timer  recent_cpu    priority   thread
 ticks   A   B   C   A   B   C   to run
 -----  --  --  --  --  --  --   ------
- 0
- 4
+ 0      0   0   0  63  61  59     A
+ 4      
  8
 12
 16
@@ -233,8 +248,19 @@ ticks   A   B   C   A   B   C   to run
 >> in the table uncertain?  If so, what rule did you use to resolve
 >> them?  Does this match the behavior of your scheduler?
 
+The functions were pretty straight forward, but when and how often to call them
+was the challenging part. The guidance led us to implement the functions in the 
+timer_tick() function, which is called by the interrupt.so in essence it works with the interrupt.
+Having the tick functions run with functions was key to proper value allocation with time
+as crucial component.
+
 >> C4: How is the way you divided the cost of scheduling between code
 >> inside and outside interrupt context likely to affect performance?
+
+A potential draw back to our implementation is that having too many functions could cause the
+interrupt function to interrupt itself. Given this constraint, we checked whether we needed to 
+run the calculations or not by looking at the assertion variables. This way if the calculations are not needed
+we don't waste CPU resources calculating said values.
 
 ---- RATIONALE ----
 
@@ -243,12 +269,22 @@ ticks   A   B   C   A   B   C   to run
 >> time to work on this part of the project, how might you choose to
 >> refine or improve your design?
 
+We would triple check the function implementation locations and conditionals that restrict
+execution of the functions to minimize CPU utilization. We would also examine the conditionals to 
+minimize the running of non required code.
+
 >> C6: The assignment explains arithmetic for fixed-point math in
 >> detail, but it leaves it open to you to implement it.  Why did you
 >> decide to implement it the way you did?  If you created an
 >> abstraction layer for fixed-point math, that is, an abstract data
 >> type and/or a set of functions or macros to manipulate fixed-point
 >> numbers, why did you do so?  If not, why not?
+
+We used macros to calculate our required functions to give use inline replacement of our code
+during execution. Looking at it from an assembly instruction perspective, this would decrease the 
+number of branches, minimizing CPU utilization. Furthermore, when implementing functions we simplified 
+some arithmetic to give us fewer calculation steps.. Another benefit was to eliminate the use of magic numbers, 
+where we have numbers only have meaning to the programmer and to simplify changes if there are/were any errors.
 
 			   SURVEY QUESTIONS
 			   ================
