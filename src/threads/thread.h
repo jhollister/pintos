@@ -93,7 +93,6 @@ struct thread
     struct list_elem allelem;           /* List element for all threads list. */
 
     int32_t nice;						/* int for niceness (cpu utilization aggressiveness)*/
-    int64_t sleep_ticks;				/* long to count sleeping ticks */
     int64_t recent_cpu;					/* long to track cpu utilization */
 
     /* Shared between thread.c and synch.c. */
