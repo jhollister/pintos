@@ -52,14 +52,35 @@ FirstName LastName <email@ucr.edu>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+-- The structure has not been written, thus we don't have a declaration yet.
+Ideally our structure will have a pointer to the children and a pointer to the parent processes, 
+so that when we wait we can notify the parent when the child finished and if we are to exit , we need to 
+know what children to wait for.
+
+typedef MAX_ARGS = 3
+Define a limit to the arguments passed given to comply with implementation examples
+
 >> B2: Describe how file descriptors are associated with open files.
 >> Are file descriptors unique within the entire OS or just within a
 >> single process?
+
+File descriptors are unique within a process. If a child is created, then the files are inhereted from the parent
+but the file descriptors must still be unique. If not , communication will be ambigious, ie. input will be shared
+which is not what we need. The openfiles are referenced through the file descriptor, but again if 2 threads are writing
+we will have race conditions as to where new data will be placed, through they will complete entirely.
 
 ---- ALGORITHMS ----
 
 >> B3: Describe your code for reading and writing user data from the
 >> kernel.
+
+writing: code was provided:
+Without loss of generality, the processes are very similar and will only explain one.
+
+First we get a list of arguments, then we check to see of the buffer is valid. We then get a pointer to our file. From 
+here we check if the file descriptor actually points to a valid file with proper permissions and start writing to 
+the file based on our checks. Before we actually write to the file we will need to obtain a lock so avoid any 
+race condition or access issues.
 
 >> B4: Suppose a system call causes a full page (4,096 bytes) of data
 >> to be copied from user space into the kernel.  What is the least
@@ -68,8 +89,12 @@ FirstName LastName <email@ucr.edu>
 >> for a system call that only copies 2 bytes of data?  Is there room
 >> for improvement in these numbers, and how much?
 
+-----------------------
+
 >> B5: Briefly describe your implementation of the "wait" system call
 >> and how it interacts with process termination.
+
+--------------------------------------------
 
 >> B6: Any access to user program memory at a user-specified address
 >> can fail due to a bad pointer value.  Such accesses must cause the
@@ -84,6 +109,9 @@ FirstName LastName <email@ucr.edu>
 >> allocated resources (locks, buffers, etc.) are freed?  In a few
 >> paragraphs, describe the strategy or strategies you adopted for
 >> managing these issues.  Give an example.
+
+
+--------------------------------------------------------
 
 ---- SYNCHRONIZATION ----
 
