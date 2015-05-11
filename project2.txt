@@ -54,6 +54,8 @@ It can also be used to parse multiple strings at once.
 >> and arguments.  In Unix-like systems, the shell does this
 >> separation.  Identify at least two advantages of the Unix approach.
 
+The unix approach means less unnecessary work done at the kernel level.
+The unix approach may allow for better handling at the uder level instead of kernel level.
 			     SYSTEM CALLS
 			     ============
 
