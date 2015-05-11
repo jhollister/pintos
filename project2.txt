@@ -29,6 +29,14 @@ FirstName LastName <email@ucr.edu>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+struct exec_helper 
+  {
+    const char *file_name;    //## Program to load (entire command line)
+    sema load_sema;	// Semaphore for loading
+    bool load_success;	// Bool for determining if program loaded successfully.
+  };
+  
+  exec_helper shares data between process_execute and thread_create.
 ---- ALGORITHMS ----
 
 >> A2: Briefly describe how you implemented argument parsing.  How do
@@ -38,6 +46,9 @@ FirstName LastName <email@ucr.edu>
 ---- RATIONALE ----
 
 >> A3: Why does Pintos implement strtok_r() but not strtok()?
+
+strtok_r() is reentrant so it can be called from multiple threads without causing undefined behavior.
+It can also be used to parse multiple strings at once.
 
 >> A4: In Pintos, the kernel separates commands into a executable name
 >> and arguments.  In Unix-like systems, the shell does this
