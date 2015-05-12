@@ -34,9 +34,10 @@ struct exec_helper
     const char *file_name;    //## Program to load (entire command line)
     sema load_sema;	// Semaphore for loading
     bool load_success;	// Bool for determining if program loaded successfully.
+    // Possibly more as needed
   };
   
-  exec_helper shares data between process_execute and thread_create.
+  exec_helper shares data between process_execute, thread_create and process_start.
 ---- ALGORITHMS ----
 
 >> A2: Briefly describe how you implemented argument parsing.  How do
@@ -55,7 +56,7 @@ It can also be used to parse multiple strings at once.
 >> separation.  Identify at least two advantages of the Unix approach.
 
 The unix approach means less unnecessary work done at the kernel level.
-The unix approach may allow for better handling at the uder level instead of kernel level.
+The unix approach may allow for better error handling at the user level instead of kernel level.
 			     SYSTEM CALLS
 			     ============
 
