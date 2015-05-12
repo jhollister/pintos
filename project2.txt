@@ -102,6 +102,12 @@ race condition or access issues.
 >> for a system call that only copies 2 bytes of data?  Is there room
 >> for improvement in these numbers, and how much?
 
+If the user space data spans over two pages then it would take max 2 calls to pagedir_get_page
+because it may be held over two pages. If it's all on one page then it would take 1 call to
+pagedir_get_page.
+Two bytes would have the same result as 4,096 bytes (although much more likely to only require 1).
+There's no way to avoid the second lookup so this can not be improved.
+
 ###########################################################################################################
 
 >> B5: Briefly describe your implementation of the "wait" system call
