@@ -129,6 +129,12 @@ children status so that we know whether to wait for a child or not.
 >> paragraphs, describe the strategy or strategies you adopted for
 >> managing these issues.  Give an example.
 
+We separate each level and function so that they are all responsible for their own 
+resources. If an error occurs inside of a function it will then clean up all resources
+it has allocated and return an error value so that the function above it can do the same.
+
+This requires us to make sure that every function call is checked for an error return value
+if it has a possibility of going wrong and that every function has an error handling section.
 
 #################################################################################################################
 
@@ -164,12 +170,7 @@ Given both cases, the race condition can occur without adverse affects.
 >> B9: Why did you choose to implement access to user memory from the
 >> kernel in the way that you did?
 
-WE HAVE NOT IMPLEMENTED YET.
-But the answer to this is similar to the answer to B6.
-We chose to compartmentalize our code so that each function works within its 
-execution mode and handles it's own resources. This will force each function 
-to have it's own error checking and as a consequence it will allow for better error 
-checking due to the limited scope of the functions.
+#####################################################################################
 
 >> B10: What advantages or disadvantages can you see to your design
 >> for file descriptors?
