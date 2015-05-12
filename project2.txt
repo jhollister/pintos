@@ -107,8 +107,6 @@ pagedir_get_page.
 Two bytes would have the same result as 4,096 bytes (although much more likely to only require 1).
 There's no way to avoid the second lookup so this can not be improved.
 
-###########################################################################################################
-
 >> B5: Briefly describe your implementation of the "wait" system call
 >> and how it interacts with process termination.
 
