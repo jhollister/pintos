@@ -8,8 +8,8 @@
 
 >> Fill in the names and email addresses of your group members.
 
-FirstName LastName <email@ucr.edu>
-FirstName LastName <email@ucr.edu>
+James Hollister <jholl013@ucr.edu>
+Roberto Pasillas <rpasi001@ucr.edu>
 
 ---- PRELIMINARIES ----
 
