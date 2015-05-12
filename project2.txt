@@ -44,6 +44,14 @@ struct exec_helper
 >> you arrange for the elements of argv[] to be in the right order?
 >> How do you avoid overflowing the stack page?
 
+In setup_stack() we call setup_stack_helper() where we will call strtok_r with a space
+as a delimiter. We store each of these tokens in an array and increase our argc at the same time.
+When we push these tokens onto the stack we start from argc-1 until we get to 0, pushing each pointer
+onto the stack. This way, we will get each element of argv[] to be in the right order.
+To avoid overflowing the stack page we limited the size of the total arguments to be less than
+one page size (4 KB).
+
+
 ---- RATIONALE ----
 
 >> A3: Why does Pintos implement strtok_r() but not strtok()?
