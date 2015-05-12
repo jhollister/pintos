@@ -43,13 +43,6 @@ struct exec_helper
 >> you arrange for the elements of argv[] to be in the right order?
 >> How do you avoid overflowing the stack page?
 
-In setup_stack() we call setup_stack_helper() where we will call strtok_r with a space
-as a delimiter. We store each of these tokens in an array and increase our argc at the same time.
-When we push these tokens onto the stack we start from argc-1 until we get to 0, pushing each pointer
-onto the stack. This way, we will get each element of argv[] to be in the right order.
-To avoid overflowing the stack page we limited the size of the total arguments to be less than
-one page size (4 KB).
-
 ---- RATIONALE ----
 
 >> A3: Why does Pintos implement strtok_r() but not strtok()?
@@ -62,7 +55,7 @@ It can also be used to parse multiple strings at once.
 >> separation.  Identify at least two advantages of the Unix approach.
 
 The unix approach means less unnecessary work done at the kernel level.
-The unix approach allows for better error handling at the user level instead of kernel level.
+The unix approach may allow for better handling at the uder level instead of kernel level.
 			     SYSTEM CALLS
 			     ============
 
@@ -109,12 +102,15 @@ race condition or access issues.
 >> for a system call that only copies 2 bytes of data?  Is there room
 >> for improvement in these numbers, and how much?
 
------------------------
+###########################################################################################################
 
 >> B5: Briefly describe your implementation of the "wait" system call
 >> and how it interacts with process termination.
 
---------------------------------------------
+The wait system call will look at the list of children processes and using the 
+synchronization structures (lock and semaphore), will wait for the children 
+to finish until there are no more children to wait on. Process termination will set the 
+children status so that we know whether to wait for a child or not.
 
 >> B6: Any access to user program memory at a user-specified address
 >> can fail due to a bad pointer value.  Such accesses must cause the
@@ -131,7 +127,7 @@ race condition or access issues.
 >> managing these issues.  Give an example.
 
 
---------------------------------------------------------
+#################################################################################################################
 
 ---- SYNCHRONIZATION ----
 
@@ -140,6 +136,10 @@ race condition or access issues.
 >> loading.  How does your code ensure this?  How is the load
 >> success/failure status passed back to the thread that calls "exec"?
 
+To exec, we first need to create a child process. Once this process exists, we will try to load
+a new process. If the load is successfull, we will set the load_status variable in the process 
+structure to true(0) or false(-1). When we return from the load, we will return the load status of the struct.
+
 >> B8: Consider parent process P with child process C.  How do you
 >> ensure proper synchronization and avoid race conditions when P
 >> calls wait(C) before C exits?  After C exits?  How do you ensure
@@ -147,16 +147,31 @@ race condition or access issues.
 >> terminates without waiting, before C exits?  After C exits?  Are
 >> there any special cases?
 
+Part of the creating process adds C to the child process of P and P to the parent list of C.
+Doing so ensures that if the child executes first and completes, the parent will know that the child 
+terminated and will not wait. Else if the child exists, the parent will effectively wait for child.
+
+In the converse situation with the parent terminating before the child, we will set the parent pointer 
+to all the children of the parent to null.
+
+Given both cases, the race condition can occur without adverse affects.
+
 ---- RATIONALE ----
 
 >> B9: Why did you choose to implement access to user memory from the
 >> kernel in the way that you did?
 
+#####################################################################################
+
 >> B10: What advantages or disadvantages can you see to your design
 >> for file descriptors?
 
+#####################################################################################
+
 >> B11: The default tid_t to pid_t mapping is the identity mapping.
 >> If you changed it, what advantages are there to your approach?
+
+######################################################################################
 
 			   SURVEY QUESTIONS
 			   ================
@@ -170,14 +185,24 @@ the quarter.
 >> In your opinion, was this assignment, or any one of the three problems
 >> in it, too easy or too hard?  Did it take too long or too little time?
 
+Clarity of the assignment. Example was the interaction between system calls and the 
+handler. 
+
 >> Did you find that working on a particular part of the assignment gave
 >> you greater insight into some aspect of OS design?
+
+System calls helped with concreting the concepts of priviledge execution modes.
+The project as a whole helped with memory implementation.
 
 >> Is there some particular fact or hint we should give students in
 >> future quarters to help them solve the problems?  Conversely, did you
 >> find any of our guidance to be misleading?
 
+Clearer references to the helper functions and or assertions that would have helped for implementation.
+
 >> Do you have any suggestions for the TAs to more effectively assist
 >> students, either for future quarters or the remaining projects?
+
+MORE TIME.
 
 >> Any other comments?
