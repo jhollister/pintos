@@ -17,6 +17,7 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -28,36 +29,30 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name) 
 {
-  struct exec_helper exec;
+  printf("Inside process_execute\n");
+  struct exec_helper *exec;
   char thread_name[16];
-  /*char *fn_copy;*/
   tid_t tid;
 
-  exec.file_name = file_name;
-  sema_init(&exec.loading, 1);
-
-  /* Make a copy of FILE_NAME.
-     Otherwise there's a race between the caller and load(). */
-  /*fn_copy = palloc_get_page (0);*/
-  /*if (fn_copy == NULL)*/
-    /*return TID_ERROR;*/
-  /*strlcpy (fn_copy, file_name, PGSIZE);*/
+  exec->file_name = file_name;
+  sema_init(&exec->loading, 0);
 
   /* Copy the first token into thread_name */
+  /*printf("Copying file_name\n");*/
   char *save_ptr;
-  char *token = strtok_r(file_name, " ", &save_ptr);
-  memcpy(thread_name, token, 15);
+  strlcpy(thread_name, file_name, sizeof(thread_name));
+  strtok_r(thread_name, " ", &save_ptr);
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, (void *)exec);
+  tid = thread_create (thread_name, PRI_DEFAULT, start_process, exec);
   if (tid != TID_ERROR) {
-    sema_down(&exec.loading);
+    sema_down(&exec->loading);
     // add new child to this thread's child list
     // TODO: We need to check this list in process_wait, when chilren are done, 
     // process wait can finish... see process wait
   }
   else {
-    // TID_ERROR (May not need)
+    return TID_ERROR;
   }
   return tid;
 }
@@ -65,23 +60,27 @@ process_execute (const char *file_name)
 /* A thread function that loads a user process and starts it
    running. */
 static void
-start_process (void *file_name_)
+start_process (void *aux)
 {
-  char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
+
+  struct exec_helper *exec = aux;
+
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
+  success = load (exec->file_name, &if_.eip, &if_.esp);
 
-  /* If load failed, quit. */
-  palloc_free_page (file_name);
-  if (!success) 
+  sema_up(&exec->loading);
+  if (!success) {
+    exec->load_success = false;
     thread_exit ();
+  }
+  exec->load_success = true;
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -112,6 +111,7 @@ process_wait (tid_t child_tid UNUSED)
 void
 process_exit (void)
 {
+  /* TODO: Need to clean up open files*/
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
@@ -234,7 +234,7 @@ load (const char *cmd_line, void (**eip) (void), void **esp)
   struct file *file = NULL;
   off_t file_ofs;
   bool success = false;
-  char *charPointer;
+  char  *save_ptr;
   int i;
 
   /* Allocate and activate page directory. */
@@ -243,9 +243,10 @@ load (const char *cmd_line, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
+
   /* Get file_name from cmd_line */
-  char *token = strtok_r(cmd_line, " ", &charPointer);
-  memcpy(file_name, token, NAME_MAX);
+  strlcpy(file_name, cmd_line, sizeof(file_name));
+  strtok_r(file_name, " ", &save_ptr);
 
 
   /* Open executable file. */
@@ -260,9 +261,7 @@ load (const char *cmd_line, void (**eip) (void), void **esp)
       goto done; 
     }
 
-  /* TODO: Disable write for 'file' here. GO TO BOTTO. DON"T CHANGE ANYTHING IN
-   * THESE IF AND FOR STATEMENTS.
-   */
+  file_deny_write(file);
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -488,30 +487,36 @@ setup_stack_helper (const char *cmd_line, uint8_t *kpage, uint8_t *upage,
                     void **esp) {
     size_t ofs = PGSIZE; // used in push
     char* const null = NULL;    // for pushing nulls
-    // TODO: Need some other variable?
-
-    // parse command line arguments and push each value
-    // TODO: Remove magic  numbers
-    char *argv[128];    // max 128 arguments
+    char **argv = malloc(128 * sizeof(char *));     // max 128 arguments
     int argc = 0;
-    char *token, *save_ptr;
-    for (token = strtok_r (cmd_line, " ", &save_ptr); token != NULL && argc < 128;
+    char *token, *save_ptr, *cmd_copy;
+
+    // Push everything onto the stack
+    cmd_copy = push(kpage, &ofs, cmd_line, strlen(cmd_line)+1);
+    if (cmd_copy == NULL)
+      return false;
+
+    for (token = strtok_r (cmd_copy, " ", &save_ptr); token != NULL && argc < 128;
          token = strtok_r (NULL, " ", &save_ptr)) {
       argv[argc++] = token;
     }
-
     // push onto stack in reverse order
     int i;
     for (i = argc - 1; i >= 0; i--) {
       if (push (kpage, &ofs, &argv[i], sizeof(argv[i])) == NULL) {
-          printf("Could not push argv\n");
-          return false;
+        return false;
       }
     }
 
+    if (push (kpage, &ofs, &argv, sizeof(argv)) == NULL)
+      return false;
+
+    if (push (kpage, &ofs, &argc, sizeof(argc)) == NULL) {
+      return false;
+    }
+
     if (push (kpage, &ofs, &null, sizeof(null)) == NULL) {
-        printf("Could not push null\n");
-        return false;
+      return false;
     }
       
     *esp = upage + ofs;
@@ -527,7 +532,7 @@ setup_stack_helper (const char *cmd_line, uint8_t *kpage, uint8_t *upage,
 static void *
 push (uint8_t *kpage, size_t *ofs, const void *buf, size_t size)
 {
-  size_t padsize = ROUNT_UP (size, sizeof(uint32_t));
+  size_t padsize = ROUND_UP (size, sizeof(uint32_t));
   if (*ofs < padsize) {
     return NULL;
   }
