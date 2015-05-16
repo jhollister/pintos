@@ -6,10 +6,13 @@
 
 #include "devices/shutdown.h"
 #include "filesys/filesys.h"
+#include "threads/synch.h"
+#include "threads/vaddr.h"
+#include "threads/palloc.h"
 
 
 static void syscall_handler (struct intr_frame *);
-static bool check_valid_buffer(const void * one, int size = 0);
+static void check_valid_buffer(const void * one, int size);
 static bool verify_user (const void *uaddr);
 static inline bool get_user (uint8_t *dst, const uint8_t *usrc);
 static char * copy_in_string (const char *us);
@@ -17,9 +20,9 @@ static void copy_in (void *dst_, const void *usrc_, size_t size);
 static void halt (void);
 static void exit (int status);
 static tid_t exec (const char *cmd_line);
-static int wait (pid_t pid);
-bool create (const char *file, unsigned initial_size);
-bool remove (const char *file);
+static int wait (tid_t pid);
+static bool create (const char *file, unsigned initial_size);
+static bool remove (const char *file);
 static void close (int fd);
 static unsigned tell (int fd);
 static void seek (int fd, unsigned position);
@@ -133,10 +136,11 @@ static void halt (void)
 
 static void exit (int status)
 {
-	struct thread *t = thread_current();
+	//struct thread *t = thread_current();
 	//if parent is exists and in list of children waited on
 	//update parent children list with status
 	thread_exit();
+  NOT_REACHED();
 /*
 Terminates the current user program, returning status to the kernel. If the process's parent waits for it (see below), this is the status that will be returned. Conventionally, a status of 0 indicates success and nonzero values indicate errors.
 */
@@ -151,9 +155,10 @@ static tid_t exec (const char *cmd_line)
 /*
 Runs the executable whose name is given in cmd_line, passing any given arguments, and returns the new process's program id (pid). Must return pid -1, which otherwise should not be a valid pid, if the program cannot load or run for any reason. Thus, the parent process cannot return from the exec until it knows whether the child process successfully loaded its executable. You must use appropriate synchronization to ensure this.
 */
+  return 0;
 }
 
-static int wait (pid_t pid)
+static int wait (tid_t pid)
 {
 /*
 Waits for a child process pid and retrieves the child's exit status.
@@ -171,6 +176,7 @@ You must ensure that Pintos does not terminate until the initial process exits. 
 
 Implementing this system call requires considerably more work than any of the rest.
 */
+  return 0;
 }
 
 static bool create (const char *file, unsigned initial_size)
@@ -194,14 +200,15 @@ static bool remove (const char *file)
 static int open (const char *file)
 {
 	//synchronize file open from file sys
-	lock_aquire(&sysLock);
-	filesys_open(file); // check return type
-	//check if open 
-	//return error if open
+	/*lock_aquire(&sysLock);*/
+	/*filesys_open(file); // check return type*/
+	/*//check if open */
+	/*//return error if open*/
 	
-	int fileNum = process_add_file(X);// check pass in parameter
-	lock_release(&sysLock);
-	return fileNum;
+	/*[>int fileNum = process_add_file(X);// check pass in parameter<]*/
+	/*lock_release(&sysLock);*/
+	/*return fileNum;*/
+  return 0;
 /*
 	Opens the file called file. Returns a nonnegative integer handle called a "file descriptor" (fd), or -1 if the file could not be opened.
 	File descriptors numbered 0 and 1 are reserved for the console: fd 0 (STDIN_FILENO) is standard input, fd 1 (STDOUT_FILENO) is standard output. The open system call will never return either of these file descriptors, which are valid as system call arguments only as explicitly described below.
@@ -215,16 +222,17 @@ static int open (const char *file)
 static int filesize (int fd)
 {
 	//synchronize call to file length
-	lock_acquire(&sysLock);
-	struct file *file = //*************************************
-	if(!file)
-	{
-		lock_release(&sysLock);
-		return -1;
-	}
-	off_t = file_length(file);
-	lock_release(&sysLock);
-	return size;
+	//lock_acquire(&sysLock);
+	/*struct file *file = //**************************************/
+  /*if(!file)*/
+  /*{*/
+    /*lock_release(&sysLock);*/
+		/*return -1;*/
+	/*}*/
+	/*off_t = file_length(file);*/
+	/*lock_release(&sysLock);*/
+	/*return size;*/
+  return 0;
 /*
 	Returns the size, in bytes, of the file open as fd.
 */
@@ -235,6 +243,7 @@ static int read (int fd, void *buffer, unsigned size)
 /*
 	Reads size bytes from the file open as fd into buffer. Returns the number of bytes actually read (0 at end of file), or -1 if the file could not be read (due to a condition other than end of file). Fd 0 reads from the keyboard using input_getc().
 */
+  return 0;
 }
 
 static int write (int fd, const void *buffer, unsigned size)
@@ -245,21 +254,26 @@ Writing past end-of-file would normally extend the file, but file growth is not 
 
 Fd 1 writes to the console. Your code to write to the console should write all of buffer in one call to putbuf(), at least as long as size is not bigger than a few hundred bytes. (It is reasonable to break up larger buffers.) Otherwise, lines of text output by different processes may end up interleaved on the console, confusing both human readers and our grading scripts.
 */
+  /*if (fd == STDOUT_FILENO) {*/
+    /*putbuf(buffer, size);*/
+    /*return size;*/
+  /*}*/
+  return 0;
 }
 
 static void seek (int fd, unsigned position)
 {
 	//similar to file size
 	// synchronize call to seek
-	lock_acquire(&sysLock);
-	struct file *file = //*************************************
-	if(!file)
-	{
-		lock_release(&sysLock);
-		//set position = error;
-	}
-	off_t size = file_length(file);
-	lock_release(&sysLock);
+	//lock_acquire(&sysLock);
+	//struct file *file = //*************************************
+	/*if(!file)*/
+	/*{*/
+		/*lock_release(&sysLock);*/
+		/*//set position = error;*/
+	/*}*/
+	//off_t size = file_length(file);
+	//lock_release(&sysLock);
 	//position = size;
 /*
 Changes the next byte to be read or written in open file fd to position, expressed in bytes from the beginning of the file. (Thus, a position of 0 is the file's start.)
@@ -270,13 +284,14 @@ A seek past the current end of a file is not an error. A later read obtains 0 by
 static unsigned tell (int fd)
 {
 	//synch call to file tell
-	lock_aquire(&sysLock);
+	//lock_aquire(&sysLock);
 	//get file structure from fd
 	//pass file structure pointer to file_tell
 	//is it valid
-	off_t value = file_tell(file);
-	lock_release(&sysLock);
-	return value
+	//off_t value = file_tell(file);
+	//lock_release(&sysLock);
+	//return value
+  return 0;
 /*
 Returns the position of the next byte to be read or written in open file fd, expressed in bytes from the beginning of the file.
 */
