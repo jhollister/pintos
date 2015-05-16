@@ -72,7 +72,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 			copy_in(args, () f->esp + 1, sizeof args * 1);
 			check_valid_buffer((void *) args[0], 0);
 			f->eax = wait(args[0]);
-            break;
+			break;
 		}
 		case SYS_CREATE:
 		{
@@ -92,15 +92,15 @@ syscall_handler (struct intr_frame *f UNUSED)
 		case SYS_OPEN:
 		{
 			//static int open (const char *file)
-            copy_in(args, (uint32_t *) f->esp + 1, sizeof args * 1);
-            check_valid_buffer((void *) args[0], 0);
-            f->eax = open((const char *) args[0]);
-            break;
+			copy_in(args, (uint32_t *) f->esp + 1, sizeof args * 1);
+			check_valid_buffer((void *) args[0], 0);
+			f->eax = open((const char *) args[0]);
+			break;
 		}
 		case SYS_FILESIZE:
 		{
 			//int filesize (int fd)
-            copy_in(args, (uint32_t *) f->esp + 1, sizeof args * 1);
+			copy_in(args, (uint32_t *) f->esp + 1, sizeof args * 1);
 			f-eax = filesize(args[0]);
 			break;
 		}
@@ -123,15 +123,15 @@ syscall_handler (struct intr_frame *f UNUSED)
 		case SYS_SEEK:
 		{
 			//void seek (int fd, unsigned position)
-            copy_in(args, (uint32_t *) f->esp + 1, sizeof args * 1);
-            f->eax = seek(args[0]);
-            break;
+			copy_in(args, (uint32_t *) f->esp + 1, sizeof args * 1);
+			f->eax = seek(args[0]);
+			break;
 		}
 		case SYS_TELL:
 		{
 			//unsigned tell (int fd)
-            copy_in(args, (uint32_t *) f->esp + 1, sizeof args * 1);
-            f->eax = tell(args[0]);
+			copy_in(args, (uint32_t *) f->esp + 1, sizeof args * 1);
+			f->eax = tell(args[0]);
             break;
 		}
 		case SYS_CLOSE:
@@ -145,7 +145,6 @@ syscall_handler (struct intr_frame *f UNUSED)
 			exit(-1);
 	}
 }
-
 
 //*************************************************************************************************************************************
 //
