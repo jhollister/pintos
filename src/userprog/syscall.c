@@ -14,6 +14,19 @@ static bool verify_user (const void *uaddr);
 static inline bool get_user (uint8_t *dst, const uint8_t *usrc);
 static char * copy_in_string (const char *us);
 static void copy_in (void *dst_, const void *usrc_, size_t size);
+static void halt (void);
+static void exit (int status);
+static tid_t exec (const char *cmd_line);
+static int wait (pid_t pid);
+bool create (const char *file, unsigned initial_size);
+bool remove (const char *file);
+static void close (int fd);
+static unsigned tell (int fd);
+static void seek (int fd, unsigned position);
+static int write (int fd, const void *buffer, unsigned size);
+static int read (int fd, void *buffer, unsigned size);
+static int filesize (int fd);
+static int open (const char *file);
 
 void
 syscall_init (void) 
@@ -113,12 +126,12 @@ syscall_handler (struct intr_frame *f UNUSED)
 //
 //
 //
-void halt (void)
+static void halt (void)
 {
 	shutdown_power_off();
 }
 
-void exit (int status)
+static void exit (int status)
 {
 	struct thread *t = thread_current();
 	//if parent is exists and in list of children waited on
@@ -129,7 +142,7 @@ Terminates the current user program, returning status to the kernel. If the proc
 */
 }
 
-pid_t exec (const char *cmd_line)
+static tid_t exec (const char *cmd_line)
 {
 	//Run with given arguments
 	//return pid
@@ -140,7 +153,7 @@ Runs the executable whose name is given in cmd_line, passing any given arguments
 */
 }
 
-int wait (pid_t pid)
+static int wait (pid_t pid)
 {
 /*
 Waits for a child process pid and retrieves the child's exit status.
@@ -160,7 +173,7 @@ Implementing this system call requires considerably more work than any of the re
 */
 }
 
-bool create (const char *file, unsigned initial_size)
+static bool create (const char *file, unsigned initial_size)
 {
 	//synchronize call to create file from filesys
 	lock_aquire(&sysLock);
@@ -169,7 +182,7 @@ bool create (const char *file, unsigned initial_size)
 	return status;
 }
 
-bool remove (const char *file)
+static bool remove (const char *file)
 {
 	//synchronize call to file remove from filesys
 	lock_aquire(&sysLock);
@@ -178,7 +191,7 @@ bool remove (const char *file)
 	return status;
 }
 
-int open (const char *file)
+static int open (const char *file)
 {
 	//synchronize file open from file sys
 	lock_aquire(&sysLock);
@@ -199,7 +212,7 @@ int open (const char *file)
 */
 }
 
-int filesize (int fd)
+static int filesize (int fd)
 {
 	//synchronize call to file length
 	lock_acquire(&sysLock);
@@ -217,14 +230,14 @@ int filesize (int fd)
 */
 }
 
-int read (int fd, void *buffer, unsigned size)
+static int read (int fd, void *buffer, unsigned size)
 {
 /*
 	Reads size bytes from the file open as fd into buffer. Returns the number of bytes actually read (0 at end of file), or -1 if the file could not be read (due to a condition other than end of file). Fd 0 reads from the keyboard using input_getc().
 */
 }
 
-int write (int fd, const void *buffer, unsigned size)
+static int write (int fd, const void *buffer, unsigned size)
 {
 /*
 Writes size bytes from buffer to the open file fd. Returns the number of bytes actually written, which may be less than size if some bytes could not be written.
@@ -234,7 +247,7 @@ Fd 1 writes to the console. Your code to write to the console should write all o
 */
 }
 
-void seek (int fd, unsigned position)
+static void seek (int fd, unsigned position)
 {
 	//similar to file size
 	// synchronize call to seek
@@ -254,7 +267,7 @@ A seek past the current end of a file is not an error. A later read obtains 0 by
 */
 }
 
-unsigned tell (int fd)
+static unsigned tell (int fd)
 {
 	//synch call to file tell
 	lock_aquire(&sysLock);
@@ -269,7 +282,7 @@ Returns the position of the next byte to be read or written in open file fd, exp
 */
 }
 
-void close (int fd)
+static void close (int fd)
 {
 	// synchronize call to close
 	lock_aquire(&sysLock);
