@@ -42,7 +42,6 @@ syscall_handler (struct intr_frame *f UNUSED)
 {
 	unsigned callNum;
 	int args[3];
-	int numOfArgs;
 
 	//## GET SYSCALL NUMBER
 	copy_in(&callNum, f->esp, sizeof callNum);
@@ -62,14 +61,14 @@ syscall_handler (struct intr_frame *f UNUSED)
 		}
 		case SYS_EXEC:
 		{
-			copy_in(args, () f->esp + 1, sizeof args * 1);
+			copy_in(args, (uint32_t *) f->esp + 1, sizeof args * 1);
 			check_valid_buffer((void *) args[0], 0);
 			f->eax = exec((const char *) args[0]);
 			break;
 		}
 		case SYS_WAIT:
 		{
-			copy_in(args, () f->esp + 1, sizeof args * 1);
+			copy_in(args, (uint32_t *) f->esp + 1, sizeof args * 1);
 			check_valid_buffer((void *) args[0], 0);
 			f->eax = wait(args[0]);
 			break;
@@ -101,7 +100,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 		{
 			//int filesize (int fd)
 			copy_in(args, (uint32_t *) f->esp + 1, sizeof args * 1);
-			f-eax = filesize(args[0]);
+			f->eax = filesize(args[0]);
 			break;
 		}
 		case SYS_READ:
@@ -123,8 +122,8 @@ syscall_handler (struct intr_frame *f UNUSED)
 		case SYS_SEEK:
 		{
 			//void seek (int fd, unsigned position)
-			copy_in(args, (uint32_t *) f->esp + 1, sizeof args * 1);
-			f->eax = seek(args[0]);
+			copy_in(args, (uint32_t *) f->esp + 1, sizeof args * 2);
+			seek(args[0], (unsigned) args[1]);
 			break;
 		}
 		case SYS_TELL:
@@ -138,7 +137,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 		{
 			//void close (int fd)
 			copy_in(args, (uint32_t *) f->esp + 1, sizeof args * 1);
-			f->eax = close(args[0]);
+			close(args[0]);
 			break;
 		}
 		default:
@@ -205,19 +204,21 @@ Implementing this system call requires considerably more work than any of the re
 static bool create (const char *file, unsigned initial_size)
 {
 	//synchronize call to create file from filesys
-	lock_aquire(&sysLock);
-	bool status = filesys_create(file, initial_size);
-	lock_release(&sysLock);
-	return status;
+	/*lock_aquire(&sysLock);*/
+	/*bool status = filesys_create(file, initial_size);*/
+	/*lock_release(&sysLock);*/
+	/*return status;*/
+  return 0;
 }
 
 static bool remove (const char *file)
 {
 	//synchronize call to file remove from filesys
-	lock_aquire(&sysLock);
-	bool status = filesys_remove(file);
-	lock_release(&sysLock);
-	return status;
+	/*lock_aquire(&sysLock);*/
+	/*bool status = filesys_remove(file);*/
+	/*lock_release(&sysLock);*/
+	/*return status;*/
+  return 0;
 }
 
 static int open (const char *file)
@@ -323,9 +324,9 @@ Returns the position of the next byte to be read or written in open file fd, exp
 static void close (int fd)
 {
 	// synchronize call to close
-	lock_aquire(&sysLock);
-	process_close_file(fd);//implement this function in process **********************************************************************************************
-	lock_release(&sysLock);
+	/*lock_aquire(&sysLock);*/
+	/*process_close_file(fd);//implement this function in process ***********************************************************************************************/
+	/*lock_release(&sysLock);*/
 }
 
 /**************************************** HANDLER HELPER FUNCTIONS ******************************************/
