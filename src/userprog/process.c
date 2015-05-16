@@ -19,6 +19,17 @@
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
 
+/* Struct used to share between process_execute() in the
+ * invoking thread and start_process() inside the newly invoked
+ * thread.
+ */
+struct exec_helper {
+    const char *file_name;  // Program to load (entire command line)
+    bool load_success; // For determining if program loaded successfully
+    struct semaphore loading;
+    // more stuff here
+};
+
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
@@ -29,13 +40,12 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name) 
 {
-  printf("Inside process_execute\n");
-  struct exec_helper *exec;
+  struct exec_helper exec;
   char thread_name[16];
   tid_t tid;
 
-  exec->file_name = file_name;
-  sema_init(&exec->loading, 0);
+  exec.file_name = file_name;
+  sema_init(&exec.loading, 0);
 
   /* Copy the first token into thread_name */
   /*printf("Copying file_name\n");*/
@@ -44,9 +54,9 @@ process_execute (const char *file_name)
   strtok_r(thread_name, " ", &save_ptr);
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (thread_name, PRI_DEFAULT, start_process, exec);
+  tid = thread_create (thread_name, PRI_DEFAULT, start_process, &exec);
   if (tid != TID_ERROR) {
-    sema_down(&exec->loading);
+    sema_down(&exec.loading);
     // add new child to this thread's child list
     // TODO: We need to check this list in process_wait, when chilren are done, 
     // process wait can finish... see process wait
