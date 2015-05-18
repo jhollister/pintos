@@ -40,12 +40,14 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
+    /*printf("In syshandler\n");*/
 	unsigned callNum;
 	int args[3];
 
 	//## GET SYSCALL NUMBER
 	copy_in(&callNum, f->esp, sizeof callNum);
 
+    /*printf("Called copyin with callnumber: %d\n\n\n", callNum);*/
 	switch(callNum)
 	{
 		case SYS_HALT:
@@ -278,10 +280,10 @@ Writing past end-of-file would normally extend the file, but file growth is not 
 
 Fd 1 writes to the console. Your code to write to the console should write all of buffer in one call to putbuf(), at least as long as size is not bigger than a few hundred bytes. (It is reasonable to break up larger buffers.) Otherwise, lines of text output by different processes may end up interleaved on the console, confusing both human readers and our grading scripts.
 */
-  /*if (fd == STDOUT_FILENO) {*/
-    /*putbuf(buffer, size);*/
-    /*return size;*/
-  /*}*/
+  if (fd == STDOUT_FILENO) {
+    putbuf(buffer, size);
+    return size;
+  }
   return 0;
 }
 
