@@ -10,6 +10,7 @@
 #include "threads/vaddr.h"
 #include "threads/palloc.h"
 
+struct lock sysLock;
 
 static void syscall_handler (struct intr_frame *);
 static void check_valid_buffer(const void * one, int size);
@@ -34,6 +35,7 @@ static int open (const char *file);
 void
 syscall_init (void) 
 {
+	lock_init(&sysLock);
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
@@ -162,7 +164,7 @@ static void exit (int status)
 	//if parent is exists and in list of children waited on
 	//update parent children list with status
 	thread_exit();
-  NOT_REACHED();
+	NOT_REACHED();
 /*
 Terminates the current user program, returning status to the kernel. If the process's parent waits for it (see below), this is the status that will be returned. Conventionally, a status of 0 indicates success and nonzero values indicate errors.
 */
@@ -208,7 +210,7 @@ static bool create (const char *file, unsigned initial_size)
 	/*bool status = filesys_create(file, initial_size);*/
 	/*lock_release(&sysLock);*/
 	/*return status;*/
-  return 0;
+	return 0;
 }
 
 static bool remove (const char *file)
@@ -218,7 +220,7 @@ static bool remove (const char *file)
 	/*bool status = filesys_remove(file);*/
 	/*lock_release(&sysLock);*/
 	/*return status;*/
-  return 0;
+	return 0;
 }
 
 static int open (const char *file)
@@ -324,9 +326,9 @@ Returns the position of the next byte to be read or written in open file fd, exp
 static void close (int fd)
 {
 	// synchronize call to close
-	/*lock_aquire(&sysLock);*/
-	/*process_close_file(fd);//implement this function in process ***********************************************************************************************/
-	/*lock_release(&sysLock);*/
+	lock_aquire(&sysLock);
+	process_close_file(fd);//implement this function in process ***********************************************************************************************/
+	lock_release(&sysLock);
 }
 
 /**************************************** HANDLER HELPER FUNCTIONS ******************************************/
