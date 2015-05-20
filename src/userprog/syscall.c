@@ -42,12 +42,14 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
+    /*printf("In syshandler\n");*/
 	unsigned callNum;
 	int args[3];
 
 	//## GET SYSCALL NUMBER
 	copy_in(&callNum, f->esp, sizeof callNum);
 
+    /*printf("Called copyin with callnumber: %d\n\n\n", callNum);*/
 	switch(callNum)
 	{
 		case SYS_HALT:
@@ -57,20 +59,20 @@ syscall_handler (struct intr_frame *f UNUSED)
 		}
 		case SYS_EXIT:
 		{
-			copy_in(args, (uint32_t *) f->esp + 1, sizeof args * 1);
+			copy_in(args, (uint32_t *) f->esp + 1, sizeof *args * 1);
 			exit(args[0]);
 			break;
 		}
 		case SYS_EXEC:
 		{
-			copy_in(args, (uint32_t *) f->esp + 1, sizeof args * 1);
+			copy_in(args, (uint32_t *) f->esp + 1, sizeof *args * 1);
 			check_valid_buffer((void *) args[0], 0);
 			f->eax = exec((const char *) args[0]);
 			break;
 		}
 		case SYS_WAIT:
 		{
-			copy_in(args, (uint32_t *) f->esp + 1, sizeof args * 1);
+			copy_in(args, (uint32_t *) f->esp + 1, sizeof *args * 1);
 			check_valid_buffer((void *) args[0], 0);
 			f->eax = wait(args[0]);
 			break;
@@ -78,14 +80,14 @@ syscall_handler (struct intr_frame *f UNUSED)
 		case SYS_CREATE:
 		{
 			//static bool create (const char *file, unsigned initial_size)
-			copy_in(args, (uint32_t *) f->esp + 1, sizeof args *2);
+			copy_in(args, (uint32_t *) f->esp + 1, sizeof *args *2);
 			check_valid_buffer((void *) args[0], (unsigned) args[1]);
 			f->eax = create((const char *) args[0], (unsigned) args[1]);
 		}
 		case SYS_REMOVE:
 		{
 			//static bool remove (const char *file)
-			copy_in(args, (uint32_t *) f->esp + 1, sizeof args * 1);
+			copy_in(args, (uint32_t *) f->esp + 1, sizeof *args * 1);
 			check_valid_buffer((void *) args[0], 0);
 			f->eax = remove((const char *) args[0]);
 			break;
@@ -93,7 +95,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 		case SYS_OPEN:
 		{
 			//static int open (const char *file)
-			copy_in(args, (uint32_t *) f->esp + 1, sizeof args * 1);
+			copy_in(args, (uint32_t *) f->esp + 1, sizeof *args * 1);
 			check_valid_buffer((void *) args[0], 0);
 			f->eax = open((const char *) args[0]);
 			break;
@@ -101,14 +103,14 @@ syscall_handler (struct intr_frame *f UNUSED)
 		case SYS_FILESIZE:
 		{
 			//int filesize (int fd)
-			copy_in(args, (uint32_t *) f->esp + 1, sizeof args * 1);
+			copy_in(args, (uint32_t *) f->esp + 1, sizeof *args * 1);
 			f->eax = filesize(args[0]);
 			break;
 		}
 		case SYS_READ:
 		{
 			//int read (int fd, void *buffer, unsigned size)
-			copy_in(args, (uint32_t *) f->esp + 1, sizeof args * 3);
+			copy_in(args, (uint32_t *) f->esp + 1, sizeof *args * 3);
 			check_valid_buffer((void *) args[1], (unsigned) args[2]);
 			f->eax = read(args[0], (const void *) args[1], (unsigned) args[2]);
 			break;
@@ -116,7 +118,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 		case SYS_WRITE:
 		{
 			//int write (int fd, const void *buffer, unsigned size)
-			copy_in(args, (uint32_t *) f->esp + 1, sizeof args * 3);
+			copy_in(args, (uint32_t *) f->esp + 1, sizeof *args * 3);
 			check_valid_buffer((void *) args[1], (unsigned) args[2]);
 			f->eax = write(args[0], (const void *) args[1],(unsigned) args[2]);
 			break;
@@ -124,21 +126,21 @@ syscall_handler (struct intr_frame *f UNUSED)
 		case SYS_SEEK:
 		{
 			//void seek (int fd, unsigned position)
-			copy_in(args, (uint32_t *) f->esp + 1, sizeof args * 2);
+			copy_in(args, (uint32_t *) f->esp + 1, sizeof *args * 2);
 			seek(args[0], (unsigned) args[1]);
 			break;
 		}
 		case SYS_TELL:
 		{
 			//unsigned tell (int fd)
-			copy_in(args, (uint32_t *) f->esp + 1, sizeof args * 1);
+			copy_in(args, (uint32_t *) f->esp + 1, sizeof *args * 1);
 			f->eax = tell(args[0]);
             break;
 		}
 		case SYS_CLOSE:
 		{
 			//void close (int fd)
-			copy_in(args, (uint32_t *) f->esp + 1, sizeof args * 1);
+			copy_in(args, (uint32_t *) f->esp + 1, sizeof *args * 1);
 			close(args[0]);
 			break;
 		}
@@ -280,10 +282,10 @@ Writing past end-of-file would normally extend the file, but file growth is not 
 
 Fd 1 writes to the console. Your code to write to the console should write all of buffer in one call to putbuf(), at least as long as size is not bigger than a few hundred bytes. (It is reasonable to break up larger buffers.) Otherwise, lines of text output by different processes may end up interleaved on the console, confusing both human readers and our grading scripts.
 */
-  /*if (fd == STDOUT_FILENO) {*/
-    /*putbuf(buffer, size);*/
-    /*return size;*/
-  /*}*/
+  if (fd == STDOUT_FILENO) {
+    putbuf(buffer, size);
+    return size;
+  }
   return 0;
 }
 

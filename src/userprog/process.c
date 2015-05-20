@@ -48,7 +48,6 @@ process_execute (const char *file_name)
   sema_init(&exec.loading, 0);
 
   /* Copy the first token into thread_name */
-  /*printf("Copying file_name\n");*/
   char *save_ptr;
   strlcpy(thread_name, file_name, sizeof(thread_name));
   strtok_r(thread_name, " ", &save_ptr);
@@ -114,6 +113,8 @@ start_process (void *aux)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
+  printf("In process_wait\n");
+  while(1);
   return -1;
 }
 
@@ -121,6 +122,7 @@ process_wait (tid_t child_tid UNUSED)
 void
 process_exit (void)
 {
+  printf("In process exit\n\n");
   /* TODO: Need to clean up open files*/
   struct thread *cur = thread_current ();
   uint32_t *pd;
@@ -221,6 +223,8 @@ struct Elf32_Phdr
 #define PF_X 1          /* Executable. */
 #define PF_W 2          /* Writable. */
 #define PF_R 4          /* Readable. */
+
+#define MAX_ARGS 128
 
 static bool setup_stack (const char *cmd_line, void **esp);
 static bool setup_stack_helper (const char *cmd_line, uint8_t *kpage, uint8_t *upage,
@@ -348,6 +352,7 @@ load (const char *cmd_line, void (**eip) (void), void **esp)
   /* Set up stack. */
   if (!setup_stack (cmd_line, esp))
     goto done;
+
 
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
@@ -483,11 +488,12 @@ setup_stack (const char *cmd_line, void **esp)
       uint8_t *upage = ( (uint8_t *) PHYS_BASE) - PGSIZE;
       success = install_page (upage, kpage, true);
       if (success) {
-        *esp = PHYS_BASE;
         success = setup_stack_helper(cmd_line, kpage, upage, esp);
       }
-      else
+      else {
+        printf("Could not setup stack!\n\n");
         palloc_free_page (kpage);
+      }
     }
   return success;
 }
@@ -497,7 +503,7 @@ setup_stack_helper (const char *cmd_line, uint8_t *kpage, uint8_t *upage,
                     void **esp) {
     size_t ofs = PGSIZE; // used in push
     char* const null = NULL;    // for pushing nulls
-    char **argv = malloc(128 * sizeof(char *));     // max 128 arguments
+    char *argv[MAX_ARGS];  // Max 128 arguments
     int argc = 0;
     char *token, *save_ptr, *cmd_copy;
 
@@ -506,25 +512,34 @@ setup_stack_helper (const char *cmd_line, uint8_t *kpage, uint8_t *upage,
     if (cmd_copy == NULL)
       return false;
 
-    for (token = strtok_r (cmd_copy, " ", &save_ptr); token != NULL && argc < 128;
+    // Null character to signify end of array
+    if (push (kpage, &ofs, &null, sizeof(null)) == NULL) {
+      return false;
+    }
+
+    for (token = strtok_r (cmd_copy, " ", &save_ptr); token != NULL && argc < MAX_ARGS;
          token = strtok_r (NULL, " ", &save_ptr)) {
       argv[argc++] = token;
     }
     // push onto stack in reverse order
     int i;
     for (i = argc - 1; i >= 0; i--) {
-      if (push (kpage, &ofs, &argv[i], sizeof(argv[i])) == NULL) {
+      void *arg = upage + (argv[i] - (char*) kpage);
+      if (push (kpage, &ofs, &arg, sizeof(arg)) == NULL) {
         return false;
       }
     }
 
-    if (push (kpage, &ofs, &argv, sizeof(argv)) == NULL)
+    // Push "top" of stack which will be a pointer to first argument
+    char **top = (char **) (upage + ofs); // Top of stack
+    if (push (kpage, &ofs, &top, sizeof(argv)) == NULL)
       return false;
 
     if (push (kpage, &ofs, &argc, sizeof(argc)) == NULL) {
       return false;
     }
 
+    // fake return address
     if (push (kpage, &ofs, &null, sizeof(null)) == NULL) {
       return false;
     }
