@@ -40,7 +40,6 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name) 
 {
-  printf("In process execute\n\n");
   struct exec_helper exec;
   char thread_name[16];
   tid_t tid;
@@ -114,6 +113,7 @@ start_process (void *aux)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
+  while(1);
   return -1;
 }
 
@@ -121,6 +121,7 @@ process_wait (tid_t child_tid UNUSED)
 void
 process_exit (void)
 {
+  printf("In process exit\n\n");
   /* TODO: Need to clean up open files*/
   struct thread *cur = thread_current ();
   uint32_t *pd;
@@ -487,7 +488,7 @@ setup_stack (const char *cmd_line, void **esp)
         success = setup_stack_helper(cmd_line, kpage, upage, esp);
       }
       else
-        printf("Could not seupt stack!\n\n");
+        printf("Could not setup stack!\n\n");
         palloc_free_page (kpage);
     }
   return success;
