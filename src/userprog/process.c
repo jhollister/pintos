@@ -487,9 +487,10 @@ setup_stack (const char *cmd_line, void **esp)
       if (success) {
         success = setup_stack_helper(cmd_line, kpage, upage, esp);
       }
-      else
+      else {
         printf("Could not setup stack!\n\n");
         palloc_free_page (kpage);
+      }
     }
   return success;
 }
@@ -514,6 +515,7 @@ setup_stack_helper (const char *cmd_line, uint8_t *kpage, uint8_t *upage,
 
     for (token = strtok_r (cmd_copy, " ", &save_ptr); token != NULL && argc < 12;
          token = strtok_r (NULL, " ", &save_ptr)) {
+      printf("Token: %s\n", token);
       argv[argc++] = token;
     }
     // push onto stack in reverse order
@@ -529,6 +531,7 @@ setup_stack_helper (const char *cmd_line, uint8_t *kpage, uint8_t *upage,
     if (push (kpage, &ofs, &argv, sizeof(argv)) == NULL)
       return false;
 
+    printf("argc=%d\n", argc);
     if (push (kpage, &ofs, &argc, sizeof(argc)) == NULL) {
       return false;
     }
