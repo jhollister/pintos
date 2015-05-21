@@ -210,11 +210,10 @@ Implementing this system call requires considerably more work than any of the re
 static bool create (const char *file, unsigned initial_size)
 {
 	//synchronize call to create file from filesys
-	/*lock_aquire(&sysLock);*/
-	/*bool status = filesys_create(file, initial_size);*/
-	/*lock_release(&sysLock);*/
-	/*return status;*/
-	return 0;
+    lock_acquire(&sysLock);
+    bool status = filesys_create(file, initial_size);
+    lock_release(&sysLock);
+    return status;
 }
 
 static bool remove (const char *file)
@@ -299,7 +298,17 @@ Fd 1 writes to the console. Your code to write to the console should write all o
     putbuf(buffer, size);
     return size;
   }
-  return 0;
+  else if (fd == STDIN_FILENO) {
+    return -1;
+  }
+  else {
+	struct list_elem *e = get_file(fd);
+    if (!e) {
+      return -1;
+    }     
+	struct file *file = list_entry(e, struct FD, fd_elem);
+    return file_write(file, buffer, size);
+  }
 }
 
 static void seek (int fd, unsigned position)
