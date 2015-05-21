@@ -163,6 +163,7 @@ static void exit (int status)
 	//struct thread *t = thread_current();
 	//if parent is exists and in list of children waited on
 	//update parent children list with status
+    printf ("%s: exit(%d)\n", thread_current()->name, status); 
 	thread_exit();
   NOT_REACHED();
 /*

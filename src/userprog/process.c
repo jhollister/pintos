@@ -27,6 +27,8 @@ struct exec_helper {
     const char *file_name;  // Program to load (entire command line)
     bool load_success; // For determining if program loaded successfully
     struct semaphore loading;
+    struct thread *child_thread; // child to add to parents child list
+    struct thread *parent;
     // more stuff here
 };
 
@@ -45,6 +47,7 @@ process_execute (const char *file_name)
   tid_t tid;
 
   exec.file_name = file_name;
+  exec.parent = thread_current();
   sema_init(&exec.loading, 0);
 
   /* Copy the first token into thread_name */
@@ -56,9 +59,16 @@ process_execute (const char *file_name)
   tid = thread_create (thread_name, PRI_DEFAULT, start_process, &exec);
   if (tid != TID_ERROR) {
     sema_down(&exec.loading);
-    // add new child to this thread's child list
-    // TODO: We need to check this list in process_wait, when chilren are done, 
-    // process wait can finish... see process wait
+    if (exec.load_success) {
+      // add new child to this thread's child list
+      struct thread *cur = thread_current();
+      list_push_back(&cur->children, &cur->child_elem);
+      // TODO: We need to check this list in process_wait, when chilren are done, 
+      // process wait can finish... see process wait
+    }
+    else {
+      tid = TID_ERROR;
+    }
   }
   else {
     return TID_ERROR;
@@ -84,12 +94,17 @@ start_process (void *aux)
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (exec->file_name, &if_.eip, &if_.esp);
 
-  sema_up(&exec->loading);
-  if (!success) {
+  if (success) {
+    struct thread *cur = thread_current();
+    exec->load_success = true;
+    exec->child_thread = cur;
+    cur->parent = exec->parent;
+  }
+  else {
     exec->load_success = false;
     thread_exit ();
   }
-  exec->load_success = true;
+  sema_up(&exec->loading);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -113,8 +128,8 @@ start_process (void *aux)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  printf("In process_wait\n");
-  while(1);
+  /*printf("In process_wait\n");*/
+  /*while(1);*/
   return -1;
 }
 
@@ -122,7 +137,7 @@ process_wait (tid_t child_tid UNUSED)
 void
 process_exit (void)
 {
-  printf("In process exit\n\n");
+  /*printf("In process exit\n\n");*/
   /* TODO: Need to clean up open files*/
   struct thread *cur = thread_current ();
   uint32_t *pd;

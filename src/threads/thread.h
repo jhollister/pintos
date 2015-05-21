@@ -104,6 +104,10 @@ struct thread
     uint32_t *pagedir;                  /* Page directory. */
 #endif
 
+    struct list children;               /* List of all running children */
+    struct list_elem child_elem;        /* List element for chilren list */
+    struct thread *parent;              /* pointer to parent thread */
+
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };

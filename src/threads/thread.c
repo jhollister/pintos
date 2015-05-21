@@ -576,6 +576,7 @@ init_thread (struct thread *t, const char *name, int priority)
 
   /* Initialize donation list */
   list_init (&t->locks_held);
+  list_init (&t->children);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
