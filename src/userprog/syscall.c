@@ -349,16 +349,16 @@ Returns the position of the next byte to be read or written in open file fd, exp
 
 static void close (int fd)
 {
-	// synchronize call to close, list_remove
+	// synchronize call to close, list_remove, free
 	lock_acquire(&sysLock);
 	struct list_elem *e = get_file(fd);
-	struct FD *fdstruct = list_entry(e, struct FD, fd_elem);
-	struct file *file = fdstruct->file;
-	if(!file)
+	if(!e)
 	{
 		lock_release(&sysLock);
 		return;
 	}
+	struct FD *fdstruct = list_entry(e, struct FD, fd_elem);
+	struct file *file = fdstruct->file;
 	file_close(file);
 	list_remove(e);
 	free(fdstruct);
