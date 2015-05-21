@@ -9,6 +9,10 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #include "threads/palloc.h"
+#include "threads/malloc.h"
+#include "filesys/file.h"
+#include "userprog/process.h"
+#include "userprog/pagedir.h"
 
 struct lock sysLock;
 
@@ -33,6 +37,7 @@ static int filesize (int fd);
 static int open (const char *file);
 struct list_elem* get_file(int fd);
 
+
 void
 syscall_init (void) 
 {
@@ -43,14 +48,16 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-    /*printf("In syshandler\n");*/
+    //printf("\n\nIn syshandler\n\n");
 	unsigned callNum;
 	int args[3];
 
 	//## GET SYSCALL NUMBER
 	copy_in(&callNum, f->esp, sizeof callNum);
 
-    /*printf("Called copyin with callnumber: %d\n\n\n", callNum);*/
+	//printf("\n\nCalled copyin with callnumber: %d\n\n", callNum);
+
+
 	switch(callNum)
 	{
 		case SYS_HALT:
@@ -84,6 +91,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 			copy_in(args, (uint32_t *) f->esp + 1, sizeof *args *2);
 			check_valid_buffer((void *) args[0], (unsigned) args[1]);
 			f->eax = create((const char *) args[0], (unsigned) args[1]);
+			break;
 		}
 		case SYS_REMOVE:
 		{
@@ -113,7 +121,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 			//int read (int fd, void *buffer, unsigned size)
 			copy_in(args, (uint32_t *) f->esp + 1, sizeof *args * 3);
 			check_valid_buffer((void *) args[1], (unsigned) args[2]);
-			f->eax = read(args[0], (const void *) args[1], (unsigned) args[2]);
+			f->eax = read(args[0], (void *) args[1], (unsigned) args[2]);
 			break;
 		}
 		case SYS_WRITE:
@@ -136,7 +144,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 			//unsigned tell (int fd)
 			copy_in(args, (uint32_t *) f->esp + 1, sizeof *args * 1);
 			f->eax = tell(args[0]);
-            break;
+			break;
 		}
 		case SYS_CLOSE:
 		{
@@ -146,16 +154,14 @@ syscall_handler (struct intr_frame *f UNUSED)
 			break;
 		}
 		default:
+			printf("\n\n Passed in a value greater than syscall is set up for. \n\n");
 			exit(-1);
 	}
 }
 
 //*************************************************************************************************************************************
-//
-//
-//
-//
-//
+
+
 static void halt (void)
 {
 	shutdown_power_off();
@@ -186,7 +192,7 @@ static tid_t exec (const char *cmd_line)
     return -1;
 }
 
-static int wait (tid_t pid)
+static int wait (tid_t pid UNUSED)
 {
 /*
 Waits for a child process pid and retrieves the child's exit status.
@@ -209,36 +215,35 @@ Implementing this system call requires considerably more work than any of the re
 
 static bool create (const char *file, unsigned initial_size)
 {
-	//synchronize call to create file from filesys
-    lock_acquire(&sysLock);
-    bool status = filesys_create(file, initial_size);
-    lock_release(&sysLock);
-    return status;
+	lock_acquire(&sysLock);
+	bool status = filesys_create(file, initial_size);
+	lock_release(&sysLock);
+	return status;
 }
 
 static bool remove (const char *file)
 {
 	//synchronize call to file remove from filesys
-    lock_acquire(&sysLock);
-    bool status = filesys_remove(file);
-    lock_release(&sysLock);
-    return status;
+	lock_acquire(&sysLock);
+	bool status = filesys_remove(file);
+	lock_release(&sysLock);
+	return status;
 }
 
 static int open (const char *file)
 {
 	//synchronize file open from file sys
 	lock_acquire(&sysLock);
-	//*********** might need to check if file is open in current thread
-	//*********** what if file is open in multiple threads?
 	struct file *f = filesys_open(file);
 	
+	// check if the return is valid based on the passed in fd
 	if(!f)
 	{
 		lock_release(&sysLock);
 		return -1;
 	}
 	
+	// create and allocate FD and pass in file and fd, then return fd
 	struct thread *t = thread_current();
 	int fileNum = t->fd;
 	t->fd += 1;
@@ -248,37 +253,40 @@ static int open (const char *file)
 	list_push_back (&t->open_files, &newFile->fd_elem);
 	lock_release(&sysLock);
 	return fileNum;
-/*
-	Opens the file called file. Returns a nonnegative integer handle called a "file descriptor" (fd), or -1 if the file could not be opened.
-	File descriptors numbered 0 and 1 are reserved for the console: fd 0 (STDIN_FILENO) is standard input, fd 1 (STDOUT_FILENO) is standard output. The open system call will never return either of these file descriptors, which are valid as system call arguments only as explicitly described below.
-
-	Each process has an independent set of file descriptors. File descriptors are not inherited by child processes.
-
-	When a single file is opened more than once, whether by a single process or different processes, each open returns a new file descriptor. Different file descriptors for a single file are closed independently in separate calls to close and they do not share a file position.
-*/
 }
 
 static int filesize (int fd)
 {
-	//synchronize call to file length
-	//lock_acquire(&sysLock);
-	/*struct file *file = //**************************************/
-  /*if(!file)*/
-  /*{*/
-    /*lock_release(&sysLock);*/
-		/*return -1;*/
-	/*}*/
-	/*off_t = file_length(file);*/
-	/*lock_release(&sysLock);*/
-	/*return size;*/
-  return 0;
-/*
-	Returns the size, in bytes, of the file open as fd.
-*/
+	// synchronize call to file length
+	lock_acquire(&sysLock);
+	struct list_elem *e = get_file(fd);
+	if(!e)
+	{
+		lock_release(&sysLock);
+		return -1;
+	}
+	struct FD *fds = list_entry(e, struct FD, fd_elem);
+	struct file *file = fds->file;
+	off_t size = file_length(file);
+	lock_release(&sysLock);
+	return size;
 }
 
 static int read (int fd, void *buffer, unsigned size)
 {
+	//synchronize call to seek
+	lock_acquire(&sysLock);
+	struct list_elem *e = get_file(fd);
+	if(!e)
+	{
+		lock_release(&sysLock);
+		exit(-1);
+	}
+	struct FD *fds = list_entry(e, struct FD, fd_elem);
+	struct file *file = fds->file;
+	int value = file_read (file, buffer, size);
+	lock_release(&sysLock);
+        return value;                                                        
 /*
 	Reads size bytes from the file open as fd into buffer. Returns the number of bytes actually read (0 at end of file), or -1 if the file could not be read (due to a condition other than end of file). Fd 0 reads from the keyboard using input_getc().
 */
@@ -316,18 +324,18 @@ Fd 1 writes to the console. Your code to write to the console should write all o
 
 static void seek (int fd, unsigned position)
 {
-	//similar to file size
 	// synchronize call to seek
-	//lock_acquire(&sysLock);
-	//struct file *file = //*************************************
-	/*if(!file)*/
-	/*{*/
-		/*lock_release(&sysLock);*/
-		/*//set position = error;*/
-	/*}*/
-	//off_t size = file_length(file);
-	//lock_release(&sysLock);
-	//position = size;
+	lock_acquire(&sysLock);
+	struct list_elem *e = get_file(fd);
+	if(!e)
+	{
+		lock_release(&sysLock);
+		exit(-1);
+	}
+	struct FD *fds = list_entry(e, struct FD, fd_elem);
+	struct file *file = fds->file;
+	file_seek(file, position);
+	lock_release(&sysLock);
 /*
 Changes the next byte to be read or written in open file fd to position, expressed in bytes from the beginning of the file. (Thus, a position of 0 is the file's start.)
 A seek past the current end of a file is not an error. A later read obtains 0 bytes, indicating end of file. A later write extends the file, filling any unwritten gap with zeros. (However, in Pintos files have a fixed length until project 4 is complete, so writes past end of file will return an error.) These semantics are implemented in the file system and do not require any special effort in system call implementation.
@@ -337,14 +345,18 @@ A seek past the current end of a file is not an error. A later read obtains 0 by
 static unsigned tell (int fd)
 {
 	//synch call to file tell
-	//lock_aquire(&sysLock);
-	//get file structure from fd
-	//pass file structure pointer to file_tell
-	//is it valid
-	//off_t value = file_tell(file);
-	//lock_release(&sysLock);
-	//return value
-  return 0;
+	lock_acquire(&sysLock);
+	struct list_elem *e = get_file(fd);
+	if(!e)
+	{
+		lock_release(&sysLock);
+		return -1;
+	}
+	struct FD *fds = list_entry(e, struct FD, fd_elem);
+	struct file *file = fds->file;
+	off_t value = file_tell(file);
+	lock_release(&sysLock);
+	return value;
 /*
 Returns the position of the next byte to be read or written in open file fd, expressed in bytes from the beginning of the file.
 */
@@ -383,8 +395,6 @@ struct list_elem* get_file(int fd)
 	return NULL;
 }
 
-
-
 /**************************************** HANDLER HELPER FUNCTIONS ******************************************/
 
 /* Copies SIZE bytes from user address USRC to kernel address
@@ -398,7 +408,7 @@ copy_in (void *dst_, const void *usrc_, size_t size)
  
   for (; size > 0; size--, dst++, usrc++) 
     if (usrc >= (uint8_t *) PHYS_BASE || !get_user (dst, usrc)) 
-      thread_exit ();
+      exit(-1); //thread_exit ();
 }
 
 /* Creates a copy of user string US in kernel memory
@@ -407,21 +417,21 @@ copy_in (void *dst_, const void *usrc_, size_t size)
    Truncates the string at PGSIZE bytes in size.
    Call thread_exit() if any of the user accesses are invalid. */
 static char *
-copy_in_string (const char *us) 
+copy_in_string (const char *us UNUSED) 
 {
   char *ks;
   size_t length;
  
   ks = palloc_get_page (0);
   if (ks == NULL) 
-    thread_exit ();
+    exit(-1);//thread_exit ();
  
   for (length = 0; length < PGSIZE; length++)
     {
-      if (us >= (char *) PHYS_BASE || !get_user (ks + length, us++)) 
+      if (us >= (char *) PHYS_BASE || !get_user ((uint8_t *) ks + length,(uint8_t *) us++)) 
         {
           palloc_free_page (ks);
-          thread_exit (); 
+          exit(-1); //thread_exit (); 
         }
        
       if (ks[length] == '\0')
@@ -456,6 +466,20 @@ verify_user (const void *uaddr)
 static void
 check_valid_buffer(const void * one, int size)
 {
+	
+	//check buffer
+//	int i = 0;
+//	for(; i < size + 1; i++)
+//	{
+//		if(!verify_user(one + i))
+//			exit(-1);
+//	}
+	
+	//check end points
 	if(!verify_user(one) || !verify_user(one + size))
+	{
+//		printf("\n\n We are exiting from check valid pointer \n\n");
 		exit(-1);
+	}
 }
+
