@@ -228,15 +228,26 @@ static bool remove (const char *file)
 static int open (const char *file)
 {
 	//synchronize file open from file sys
-	/*lock_aquire(&sysLock);*/
-	/*filesys_open(file); // check return type*/
-	/*//check if open */
-	/*//return error if open*/
+	lock_acquire(&sysLock);
+	//*********** might need to check if file is open in current thread
+	//*********** what if file is open in multiple threads?
+	struct file *f = filesys_open(file);
 	
-	/*[>int fileNum = process_add_file(X);// check pass in parameter<]*/
-	/*lock_release(&sysLock);*/
-	/*return fileNum;*/
-  return 0;
+	if(!f)
+	{
+		lock_release(&sysLock);
+		return -1;
+	}
+	
+	struct thread *t = thread_current();
+	int fileNum = t->fd;
+	t->fd += 1;
+	struct FD *newFile = malloc(sizeof (struct FD)); 
+	newFile->fd = fileNum;
+	newFile->file = f;
+	list_push_back (&t->open_files, &newFile->fd_elem);
+	lock_release(&sysLock);
+	return fileNum;
 /*
 	Opens the file called file. Returns a nonnegative integer handle called a "file descriptor" (fd), or -1 if the file could not be opened.
 	File descriptors numbered 0 and 1 are reserved for the console: fd 0 (STDIN_FILENO) is standard input, fd 1 (STDOUT_FILENO) is standard output. The open system call will never return either of these file descriptors, which are valid as system call arguments only as explicitly described below.
@@ -344,7 +355,8 @@ static void close (int fd)
 	// synchronize call to close, list_remove
 	lock_acquire(&sysLock);
 	struct list_elem *e = get_file(fd);
-	struct file *file = list_entry(e, struct FD, fd_elem);
+	struct FD *fdstruct = list_entry(e, struct FD, fd_elem);
+	struct file *file = fdstruct->file;
 	if(!file)
 	{
 		lock_release(&sysLock);
@@ -352,6 +364,7 @@ static void close (int fd)
 	}
 	file_close(file);
 	list_remove(e);
+	free(fdstruct);
 	lock_release(&sysLock);
 }
 
