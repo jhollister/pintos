@@ -166,7 +166,15 @@ static void exit (int status)
   //struct thread *t = thread_current();
   //if parent is exists and in list of children waited on
   //update parent children list with status
-  printf ("%s: exit(%d)\n", thread_current()->name, status); 
+  lock_acquire(&sysLock);
+  struct thread *t = thread_current();
+  printf ("%s: exit(%d)\n", t->name, status); 
+  struct child_process *cp = get_child_process(t->parent, t->tid); 
+  if (cp) {
+    cp->status = status;
+    cp->exited = true;
+  }
+  lock_release(&sysLock);
   thread_exit();
   NOT_REACHED();
 /*

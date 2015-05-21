@@ -106,7 +106,6 @@ struct thread
 
     struct file *bin_file;              /* The binary file of the thread */
     struct list children;               /* List of all running children */
-    struct list_elem child_elem;        /* List element for chilren list */
     struct thread *parent;              /* pointer to parent thread */
 
     /* Owned by thread.c. */
@@ -115,6 +114,14 @@ struct thread
 	//list of files
 	struct list open_files;				/*list of open files*/
 	int fd;								/* keeps track of next fd */  
+};
+
+/* Keeps track of the current status of every child process */
+struct child_process {
+  tid_t tid;
+  bool exited;
+  int status;
+  struct list_elem elem;
 };
 
 struct FD
