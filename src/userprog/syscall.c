@@ -178,7 +178,6 @@ static void exit (int status)
   struct child_process *cp = get_child_process(t->parent, t->tid); 
   if (cp) {
     cp->status = status;
-    cp->exited = true;
   }
   lock_release(&sysLock);
   thread_exit();

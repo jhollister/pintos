@@ -61,8 +61,12 @@ process_execute (const char *file_name)
     sema_down(&exec.loading);
     if (exec.load_success) {
       // add new child to this thread's child list
+      struct child_process *cp = malloc(sizeof(struct child_process));
+      cp->tid = exec.child_thread->tid;
+      sema_init(&cp->exited, 0);
+      cp->status = -1;
       struct thread *cur = thread_current();
-      list_push_back(&cur->children, &cur->child_elem);
+      list_push_back(&cur->children, &cp->elem);
       // TODO: We need to check this list in process_wait, when chilren are done, 
       // process wait can finish... see process wait
     }
@@ -126,11 +130,39 @@ start_process (void *aux)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid) 
 {
   /*printf("In process_wait\n");*/
   /*while(1);*/
-  return -1;
+  struct child_process *cp = get_child_process(thread_current(), child_tid);
+  if (!cp) {
+    return -1;
+  }
+  /*while (!cp->exited);*/
+  sema_down(&cp->exited);
+  int status = cp->status;
+  list_remove(&cp->elem);
+  free(cp);
+  return status;
+}
+
+/* Iterates through the child list looking for tid.
+ * Returns NULL if not found 
+ */
+struct child_process *
+get_child_process(struct thread *t, tid_t tid) {
+  struct thread *current = t;
+  struct list_elem *e = list_begin(&current->children);
+  /*for (e = list_begin(&current->children); e != list_end(&current->children);*/
+       /*e = list_next (e)) {*/
+  while (e != list_end(&current->children)) {
+    struct child_process *cp = list_entry(e, struct child_process, elem);
+    if (cp->tid == tid) {
+      return cp;
+    }
+    e = list_next (e);
+  }
+  return NULL;
 }
 
 /* Free the current process's resources. */
@@ -142,6 +174,10 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
   file_close(cur->bin_file);
+  struct child_process *cp = get_child_process(cur->parent, cur->tid);
+  if (cp) {
+    sema_up(&cp->exited);
+  }
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
