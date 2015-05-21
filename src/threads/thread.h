@@ -104,6 +104,7 @@ struct thread
     uint32_t *pagedir;                  /* Page directory. */
 #endif
 
+    struct file *bin_file;              /* The binary file of the thread */
     struct list children;               /* List of all running children */
     struct list_elem child_elem;        /* List element for chilren list */
     struct thread *parent;              /* pointer to parent thread */
