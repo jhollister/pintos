@@ -31,12 +31,13 @@ static int write (int fd, const void *buffer, unsigned size);
 static int read (int fd, void *buffer, unsigned size);
 static int filesize (int fd);
 static int open (const char *file);
+struct list_elem* get_file(int fd);
 
 void
 syscall_init (void) 
 {
 	lock_init(&sysLock);
-  intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
+	intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
 static void
@@ -327,11 +328,36 @@ Returns the position of the next byte to be read or written in open file fd, exp
 
 static void close (int fd)
 {
-	// synchronize call to close
-	lock_aquire(&sysLock);
-	process_close_file(fd);//implement this function in process ***********************************************************************************************/
+	// synchronize call to close, list_remove
+	lock_acquire(&sysLock);
+	struct list_elem *e = get_file(fd);
+	struct file *file = list_entry(e, struct FD, fd_elem);
+	if(!file)
+	{
+		lock_release(&sysLock);
+		return;
+	}
+	file_close(file);
+	list_remove(e);
 	lock_release(&sysLock);
 }
+
+struct list_elem* get_file(int fd)
+{
+	struct thread *t = thread_current();
+	struct list_elem *e = list_begin(&t->open_files);
+
+	for( ; e != list_end(&t->open_files) ; e = list_next(e))
+	{	
+		struct FD *fileD = list_entry(e, struct FD, fd_elem);
+		if(fd == fileD->fd)
+			return e;
+	}
+
+	return NULL;
+}
+
+
 
 /**************************************** HANDLER HELPER FUNCTIONS ******************************************/
 
