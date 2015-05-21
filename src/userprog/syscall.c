@@ -219,11 +219,10 @@ static bool create (const char *file, unsigned initial_size)
 static bool remove (const char *file)
 {
 	//synchronize call to file remove from filesys
-	/*lock_aquire(&sysLock);*/
-	/*bool status = filesys_remove(file);*/
-	/*lock_release(&sysLock);*/
-	/*return status;*/
-	return 0;
+    lock_acquire(&sysLock);
+    bool status = filesys_remove(file);
+    lock_release(&sysLock);
+    return status;
 }
 
 static int open (const char *file)
@@ -302,12 +301,16 @@ Fd 1 writes to the console. Your code to write to the console should write all o
     return -1;
   }
   else {
+    lock_acquire(&sysLock);
 	struct list_elem *e = get_file(fd);
     if (!e) {
+      lock_release(&sysLock);
       return -1;
     }     
-	struct file *file = list_entry(e, struct FD, fd_elem);
-    return file_write(file, buffer, size);
+	struct file *file = list_entry(e, struct FD, fd_elem)->file;
+    int size = file_write(file, buffer, size);
+    lock_release(&sysLock);
+    return size;
   }
 }
 
