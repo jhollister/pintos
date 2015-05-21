@@ -296,7 +296,7 @@ Fd 1 writes to the console. Your code to write to the console should write all o
       lock_release(&sysLock);
       return -1;
     }     
-	struct file *file = list_entry(e, struct FD, fd_elem);
+	struct file *file = list_entry(e, struct FD, fd_elem)->file;
     int size = file_write(file, buffer, size);
     lock_release(&sysLock);
     return size;
