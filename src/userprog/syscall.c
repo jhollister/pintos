@@ -219,11 +219,10 @@ static bool create (const char *file, unsigned initial_size)
 static bool remove (const char *file)
 {
 	//synchronize call to file remove from filesys
-	/*lock_aquire(&sysLock);*/
-	/*bool status = filesys_remove(file);*/
-	/*lock_release(&sysLock);*/
-	/*return status;*/
-	return 0;
+    lock_acquire(&sysLock);
+    bool status = filesys_remove(file);
+    lock_release(&sysLock);
+    return status;
 }
 
 static int open (const char *file)
