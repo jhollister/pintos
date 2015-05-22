@@ -132,14 +132,15 @@ start_process (void *aux)
 int
 process_wait (tid_t child_tid) 
 {
-  /*printf("In process_wait\n");*/
   /*while(1);*/
   struct child_process *cp = get_child_process(thread_current(), child_tid);
   if (!cp) {
     return -1;
   }
   /*while (!cp->exited);*/
+  /*printf("Waiting on child in thread %s\n\n", thread_current()->name);*/
   sema_down(&cp->exited);
+  /*printf("Done waiting\n\n");*/
   int status = cp->status;
   list_remove(&cp->elem);
   free(cp);
@@ -295,12 +296,12 @@ bool
 load (const char *cmd_line, void (**eip) (void), void **esp) 
 {
   struct thread *t = thread_current ();
-  char file_name[NAME_MAX + 2];
+  const char *file_name = t->name;
   struct Elf32_Ehdr ehdr;
   struct file *file = NULL;
   off_t file_ofs;
   bool success = false;
-  char  *save_ptr;
+  /*char  *save_ptr;*/
   int i;
 
   /* Allocate and activate page directory. */
@@ -311,8 +312,8 @@ load (const char *cmd_line, void (**eip) (void), void **esp)
 
 
   /* Get file_name from cmd_line */
-  strlcpy(file_name, cmd_line, sizeof(file_name));
-  strtok_r(file_name, " ", &save_ptr);
+  /*strlcpy(file_name, cmd_line, sizeof(file_name));*/
+  /*strtok_r(file_name, " ", &save_ptr);*/
 
 
   /* Open executable file. */
@@ -594,6 +595,7 @@ setup_stack_helper (const char *cmd_line, uint8_t *kpage, uint8_t *upage,
     }
       
     *esp = upage + ofs;
+    /*hex_dump(ofs, esp, PGSIZE, true);*/
     return true;
 }
 

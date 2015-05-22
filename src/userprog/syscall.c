@@ -55,7 +55,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	//## GET SYSCALL NUMBER
 	copy_in(&callNum, f->esp, sizeof callNum);
 
-	//printf("\n\nCalled copyin with callnumber: %d\n\n", callNum);
+	/*printf("\n\nCalled copyin with callnumber: %d\n\n", callNum);*/
 
 
 	switch(callNum)
@@ -81,7 +81,6 @@ syscall_handler (struct intr_frame *f UNUSED)
 		case SYS_WAIT:
 		{
 			copy_in(args, (uint32_t *) f->esp + 1, sizeof *args * 1);
-			check_valid_buffer((void *) args[0], 0);
 			f->eax = wait(args[0]);
 			break;
 		}
@@ -154,7 +153,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 			break;
 		}
 		default:
-			printf("\n\n Passed in a value greater than syscall is set up for. \n\n");
+			/*printf("\n\n Passed in a value greater than syscall is set up for. \n\n");*/
 			exit(-1);
 	}
 }
@@ -194,12 +193,13 @@ static tid_t exec (const char *cmd_line)
 {
     tid_t tid = process_execute(cmd_line);
     if (tid != TID_ERROR ) {
+        /*printf("Created %s with pid: %d \n\n", cmd_line, tid);*/
         return tid;
     }
     return -1;
 }
 
-static int wait (tid_t pid UNUSED)
+static int wait (tid_t pid )
 {
 /*
 Waits for a child process pid and retrieves the child's exit status.
@@ -217,7 +217,9 @@ You must ensure that Pintos does not terminate until the initial process exits. 
 
 Implementing this system call requires considerably more work than any of the rest.
 */
-  return 0;
+  /*printf("wait called on pid: %d \n\n", pid);*/
+  int status = process_wait(pid);
+  return status;
 }
 
 static bool create (const char *file, unsigned initial_size)
@@ -323,6 +325,7 @@ Fd 1 writes to the console. Your code to write to the console should write all o
       return -1;
     }     
 	struct file *file = list_entry(e, struct FD, fd_elem)->file;
+    /*printf("Writing file with size: %d\n\n", size);*/
     int size = file_write(file, buffer, size);
     lock_release(&sysLock);
     return size;
