@@ -28,13 +28,15 @@ struct exec_helper {
     const char *file_name;  // Program to load (entire command line)
     bool load_success; // For determining if program loaded successfully
     struct semaphore loading;
-    struct thread *child_thread; // child to add to parents child list
-    struct thread *parent;
+    tid_t parent;
     // more stuff here
 };
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
+static void remove_all_children(void);
+
+static int child_count = 0;
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -47,9 +49,14 @@ process_execute (const char *file_name)
   char thread_name[16];
   tid_t tid;
 
+  child_count++;
+  if (child_count > 50) {
+    return TID_ERROR;
+  }
+
   /*printf("In process execute: %s\n\n", file_name);*/
   exec.file_name = file_name;
-  exec.parent = thread_current();
+  exec.parent = thread_current()->tid;
   sema_init(&exec.loading, 0);
 
   /* Copy the first token into thread_name */
@@ -59,22 +66,13 @@ process_execute (const char *file_name)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (thread_name, PRI_DEFAULT, start_process, &exec);
+  /*printf("Waiting on load\n");*/
+  sema_down(&exec.loading);
+  /*printf("doen waiting on load\n\n");*/
   if (tid != TID_ERROR) {
-    sema_down(&exec.loading);
-    if (exec.load_success) {
-      // add new child to this thread's child list
-      struct child_process *cp = malloc(sizeof(struct child_process));
-      cp->tid = exec.child_thread->tid;
-      sema_init(&cp->exited, 0);
-      cp->status = -1;
-      struct thread *cur = thread_current();
-      printf("pushed child with tid: %d\n\n", exec.child_thread->tid);
-      list_push_back(&cur->children, &cp->elem);
-      // TODO: We need to check this list in process_wait, when chilren are done, 
-      // process wait can finish... see process wait
-    }
-    else {
-      tid = TID_ERROR;
+    if (!exec.load_success) {
+      /*printf("Could not load child\n");*/
+      return TID_ERROR;
     }
   }
   else {
@@ -102,17 +100,38 @@ start_process (void *aux)
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (exec->file_name, &if_.eip, &if_.esp);
 
+  struct thread *cur = thread_current();
+  cur->parent = exec->parent;
+  struct child_process *cp = malloc(sizeof(struct child_process));
+  if (!cp) {
+    exec->load_success = false;
+    thread_exit();
+  }
+  cp->tid = cur->tid;
+  cp->waited = false;
+  cp->exited = false;
+  cp->status = -1;
+  sema_init(&cp->exited_sema, 0);
+
+  cur->cp = cp;
+  struct thread *parent = get_thread(cur->parent);
+  if (parent != NULL) {
+    list_push_back(&parent->children, &cp->elem);
+  }
   if (success) {
-    struct thread *cur = thread_current();
     exec->load_success = true;
-    exec->child_thread = cur;
-    cur->parent = exec->parent->tid;
   }
   else {
+    /*printf("load failed\n");*/
+    cp->exited = true;
+    sema_up(&cp->exited_sema);
     exec->load_success = false;
-    thread_exit ();
   }
   sema_up(&exec->loading);
+
+  if (!success) {
+    thread_exit();
+  }
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -136,19 +155,19 @@ start_process (void *aux)
 int
 process_wait (tid_t child_tid) 
 {
-  /*while(1);*/
-  struct child_process *cp = get_child_process(thread_current(), child_tid);
+  struct child_process *cp = get_child_process(child_tid);
   if (!cp) {
     return -1;
   }
-  if (!get_thread(child_tid) ) {
-    /*printf("Returning wait with: %d\n\n", cp->status);*/
-    return cp->status;
+  if (cp->waited) {
+    return -1;
   }
-  /*while (!cp->exited);*/
-  /*printf("Waiting on child in thread %s\n\n", thread_current()->name);*/
-  sema_down(&cp->exited);
-  /*printf("Done waiting\n\n");*/
+  cp->waited = true;
+  if (!cp->exited) {
+    /*printf("Waiting on child: %d\n", child_tid);*/
+    sema_down(&cp->exited_sema);
+    /*printf("Done waiting on child: %d\n", child_tid);*/
+  }
   int status = cp->status;
   list_remove(&cp->elem);
   free(cp);
@@ -159,8 +178,8 @@ process_wait (tid_t child_tid)
  * Returns NULL if not found 
  */
 struct child_process *
-get_child_process(struct thread *t, tid_t tid) {
-  struct thread *current = t;
+get_child_process(tid_t tid) {
+  struct thread *current = thread_current();
   struct list_elem *e = list_begin(&current->children);
   /*for (e = list_begin(&current->children); e != list_end(&current->children);*/
        /*e = list_next (e)) {*/
@@ -174,22 +193,38 @@ get_child_process(struct thread *t, tid_t tid) {
   return NULL;
 }
 
+static void
+remove_all_children(void) {
+  struct thread *t = thread_current();
+  struct list_elem *next, *e = list_begin(&t->children);
+  while (e != list_end(&t->children)) {
+    next = list_next(e);
+    struct child_process *cp = list_entry (e, struct child_process,
+                                           elem);
+    list_remove(&cp->elem);
+    free(cp);
+    e = next;
+  }
+}
+
 /* Free the current process's resources. */
 void
 process_exit (void)
 {
-  /*printf("In process exit\n\n");*/
-  /* TODO: Need to clean up open files*/
+  child_count--;
   struct thread *cur = thread_current ();
   uint32_t *pd;
-  file_close(cur->bin_file);
+  /* TODO: Need to clean up open files*/
+  /*printf("In process exit%d\n", cur->tid);*/
+  file_close(cur->bin_file); // May need to check if file is open first
+
+  // remove all children from list and free memory
+  remove_all_children();
+
   struct thread *parent = get_thread(cur->parent);
-  if (parent != NULL) {
-    struct child_process *cp = get_child_process(parent, cur->tid);
-    if (cp) {
-      printf("Exited\n\n");
-      sema_up(&cp->exited);
-    }
+  if (parent != NULL && cur->cp) {
+    cur->cp->exited = true;
+    sema_up(&cur->cp->exited_sema);
   }
 
   /* Destroy the current process's page directory and switch back
@@ -424,8 +459,6 @@ load (const char *cmd_line, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
-  /*file_close (file);*/
-  /* TODO: Need to close file when process is done (In process exit) */
   return success;
 }
 

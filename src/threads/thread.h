@@ -107,6 +107,7 @@ struct thread
 
     struct file *bin_file;              /* The binary file of the thread */
     struct list children;               /* List of all running children */
+    struct child_process *cp;
     tid_t parent;              /* thread id of parent thread */
 
     /* Owned by thread.c. */
@@ -120,7 +121,9 @@ struct thread
 /* Keeps track of the current status of every child process */
 struct child_process {
   tid_t tid;
-  struct semaphore exited;
+  struct semaphore exited_sema;
+  bool waited;
+  bool exited;
   int status;
   struct list_elem elem;
 };

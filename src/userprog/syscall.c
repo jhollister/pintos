@@ -23,7 +23,6 @@ static inline bool get_user (uint8_t *dst, const uint8_t *usrc);
 static char * copy_in_string (const char *us);
 static void copy_in (void *dst_, const void *usrc_, size_t size);
 static void halt (void);
-static void exit (int status);
 static tid_t exec (const char *cmd_line);
 static int wait (tid_t pid);
 static bool create (const char *file, unsigned initial_size);
@@ -46,12 +45,15 @@ syscall_init (void)
 }
 
 static void
-syscall_handler (struct intr_frame *f UNUSED) 
+syscall_handler (struct intr_frame *f) 
 {
     //printf("\n\nIn syshandler\n\n");
 	unsigned callNum;
 	int args[3];
 
+    if (!verify_user(f->esp) || f->esp < 0x08048000) {
+      exit(-1);
+    }
 	//## GET SYSCALL NUMBER
 	copy_in(&callNum, f->esp, sizeof callNum);
 
@@ -74,8 +76,10 @@ syscall_handler (struct intr_frame *f UNUSED)
 		case SYS_EXEC:
 		{
             copy_in(args, (uint32_t *) f->esp + 1, sizeof *args * 1);
+            if (!verify_user((const void *)args[0])) {
+              exit(-1);
+            }
             char *str = copy_in_string((const char *)args[0]);
-			check_valid_buffer((void *) args[0], 0);
 			f->eax = exec(str);
             palloc_free_page(str);
 			break;
@@ -168,27 +172,18 @@ static void halt (void)
 	shutdown_power_off();
 }
 
-static void exit (int status)
+void exit (int status)
 {
   //struct thread *t = thread_current();
   //if parent is exists and in list of children waited on
   //update parent children list with status
-  lock_acquire(&sysLock);
   struct thread *t = thread_current();
-  printf ("%s: exit(%d)\n", t->name, status); 
   struct thread *parent = get_thread(t->parent);
-  if (parent != NULL) {
-    printf("Parent is alive\n\n");
-    struct child_process *cp = get_child_process(parent, t->tid); 
-    if (cp != NULL) {
-      printf("setting status with: %d\n\n", status);
-      cp->status = status;
-    }
-    else {
-      printf("cp is NULL\n\n");
-      }
+  if (parent && t->cp) {
+    /*printf("Parent is alive\n\n");*/
+    t->cp->status = status;
   }
-  lock_release(&sysLock);
+  printf ("%s: exit(%d)\n", t->name, status); 
   thread_exit();
   NOT_REACHED();
 /*
@@ -425,6 +420,9 @@ copy_in (void *dst_, const void *usrc_, size_t size)
 {
   uint8_t *dst = dst_;
   const uint8_t *usrc = usrc_;
+  if (usrc == NULL || dst == NULL) {
+    exit(-1);
+  }
  
   for (; size > 0; size--, dst++, usrc++) 
     if (usrc >= (uint8_t *) PHYS_BASE || !get_user (dst, usrc)) 
@@ -437,11 +435,14 @@ copy_in (void *dst_, const void *usrc_, size_t size)
    Truncates the string at PGSIZE bytes in size.
    Call thread_exit() if any of the user accesses are invalid. */
 static char *
-copy_in_string (const char *us UNUSED) 
+copy_in_string (const char *us) 
 {
   char *ks;
   size_t length;
  
+  if (us == NULL) {
+    exit(-1);
+  }
   ks = palloc_get_page (0);
   if (ks == NULL) 
     exit(-1);//thread_exit ();
