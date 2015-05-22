@@ -73,9 +73,11 @@ syscall_handler (struct intr_frame *f UNUSED)
 		}
 		case SYS_EXEC:
 		{
-			copy_in(args, (uint32_t *) f->esp + 1, sizeof *args * 1);
+            copy_in(args, (uint32_t *) f->esp + 1, sizeof *args * 1);
+            char *str = copy_in_string((const char *)args[0]);
 			check_valid_buffer((void *) args[0], 0);
-			f->eax = exec((const char *) args[0]);
+			f->eax = exec(str);
+            palloc_free_page(str);
 			break;
 		}
 		case SYS_WAIT:
@@ -174,9 +176,17 @@ static void exit (int status)
   lock_acquire(&sysLock);
   struct thread *t = thread_current();
   printf ("%s: exit(%d)\n", t->name, status); 
-  struct child_process *cp = get_child_process(t->parent, t->tid); 
-  if (cp) {
-    cp->status = status;
+  struct thread *parent = get_thread(t->parent);
+  if (parent != NULL) {
+    printf("Parent is alive\n\n");
+    struct child_process *cp = get_child_process(parent, t->tid); 
+    if (cp != NULL) {
+      printf("setting status with: %d\n\n", status);
+      cp->status = status;
+    }
+    else {
+      printf("cp is NULL\n\n");
+      }
   }
   lock_release(&sysLock);
   thread_exit();

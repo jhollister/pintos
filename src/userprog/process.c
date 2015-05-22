@@ -18,6 +18,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
+#include "threads/thread.h"
 
 /* Struct used to share between process_execute() in the
  * invoking thread and start_process() inside the newly invoked
@@ -46,6 +47,7 @@ process_execute (const char *file_name)
   char thread_name[16];
   tid_t tid;
 
+  /*printf("In process execute: %s\n\n", file_name);*/
   exec.file_name = file_name;
   exec.parent = thread_current();
   sema_init(&exec.loading, 0);
@@ -66,6 +68,7 @@ process_execute (const char *file_name)
       sema_init(&cp->exited, 0);
       cp->status = -1;
       struct thread *cur = thread_current();
+      printf("pushed child with tid: %d\n\n", exec.child_thread->tid);
       list_push_back(&cur->children, &cp->elem);
       // TODO: We need to check this list in process_wait, when chilren are done, 
       // process wait can finish... see process wait
@@ -88,7 +91,8 @@ start_process (void *aux)
   struct intr_frame if_;
   bool success;
 
-  struct exec_helper *exec = aux;
+  struct exec_helper *exec = (struct exec_helper *)aux;
+  /*printf("exec name: %s\n", exec->file_name);*/
 
 
   /* Initialize interrupt frame and load executable. */
@@ -102,7 +106,7 @@ start_process (void *aux)
     struct thread *cur = thread_current();
     exec->load_success = true;
     exec->child_thread = cur;
-    cur->parent = exec->parent;
+    cur->parent = exec->parent->tid;
   }
   else {
     exec->load_success = false;
@@ -136,6 +140,10 @@ process_wait (tid_t child_tid)
   struct child_process *cp = get_child_process(thread_current(), child_tid);
   if (!cp) {
     return -1;
+  }
+  if (!get_thread(child_tid) ) {
+    /*printf("Returning wait with: %d\n\n", cp->status);*/
+    return cp->status;
   }
   /*while (!cp->exited);*/
   /*printf("Waiting on child in thread %s\n\n", thread_current()->name);*/
@@ -175,9 +183,13 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
   file_close(cur->bin_file);
-  struct child_process *cp = get_child_process(cur->parent, cur->tid);
-  if (cp) {
-    sema_up(&cp->exited);
+  struct thread *parent = get_thread(cur->parent);
+  if (parent != NULL) {
+    struct child_process *cp = get_child_process(parent, cur->tid);
+    if (cp) {
+      printf("Exited\n\n");
+      sema_up(&cp->exited);
+    }
   }
 
   /* Destroy the current process's page directory and switch back
@@ -399,6 +411,7 @@ load (const char *cmd_line, void (**eip) (void), void **esp)
         }
     }
 
+  /*printf("Loading %s\n", cmd_line);*/
   /* Set up stack. */
   if (!setup_stack (cmd_line, esp))
     goto done;
@@ -531,6 +544,7 @@ setup_stack (const char *cmd_line, void **esp)
 {
   uint8_t *kpage;
   bool success = false;
+  /*printf("Adding %s to stack\n", cmd_line);*/
 
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
@@ -541,7 +555,7 @@ setup_stack (const char *cmd_line, void **esp)
         success = setup_stack_helper(cmd_line, kpage, upage, esp);
       }
       else {
-        printf("Could not setup stack!\n\n");
+        /*printf("Could not setup stack!\n\n");*/
         palloc_free_page (kpage);
       }
     }
@@ -557,6 +571,7 @@ setup_stack_helper (const char *cmd_line, uint8_t *kpage, uint8_t *upage,
     int argc = 0;
     char *token, *save_ptr, *cmd_copy;
 
+    /*printf("Adding %s to stack\n\n", cmd_line);*/
     // Push everything onto the stack
     cmd_copy = push(kpage, &ofs, cmd_line, strlen(cmd_line)+1);
     if (cmd_copy == NULL)
@@ -595,7 +610,8 @@ setup_stack_helper (const char *cmd_line, uint8_t *kpage, uint8_t *upage,
     }
       
     *esp = upage + ofs;
-    /*hex_dump(ofs, esp, PGSIZE, true);*/
+
+    /*hex_dump(ofs, 0xbfffffc8, PGSIZE, true);*/
     return true;
 }
 

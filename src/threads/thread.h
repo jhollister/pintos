@@ -107,7 +107,7 @@ struct thread
 
     struct file *bin_file;              /* The binary file of the thread */
     struct list children;               /* List of all running children */
-    struct thread *parent;              /* pointer to parent thread */
+    tid_t parent;              /* thread id of parent thread */
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
@@ -170,5 +170,7 @@ int thread_get_load_avg (void);
 
 bool priority_compare (const struct list_elem *first,
                        const struct list_elem *second, void *aux);
+
+struct thread *get_thread(tid_t tid);
 
 #endif /* threads/thread.h */
