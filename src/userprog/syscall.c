@@ -176,7 +176,6 @@ static tid_t exec (const char *cmd_line)
 {
 	tid_t tid = process_execute(cmd_line);
 	if (tid != TID_ERROR ) {
-        /*printf("Created %s with pid: %d \n\n", cmd_line, tid);*/
 		return tid;
 	}
 	return -1;
