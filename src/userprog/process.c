@@ -36,7 +36,6 @@ static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 static void remove_all_children(void);
 
-static int child_count = 0;
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -49,12 +48,6 @@ process_execute (const char *file_name)
   char thread_name[16];
   tid_t tid;
 
-  child_count++;
-  if (child_count > 50) {
-    return TID_ERROR;
-  }
-
-  /*printf("In process execute: %s\n\n", file_name);*/
   exec.file_name = file_name;
   exec.parent = thread_current()->tid;
   sema_init(&exec.loading, 0);
@@ -66,12 +59,9 @@ process_execute (const char *file_name)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (thread_name, PRI_DEFAULT, start_process, &exec);
-  /*printf("Waiting on load\n");*/
-  sema_down(&exec.loading);
-  /*printf("doen waiting on load\n\n");*/
   if (tid != TID_ERROR) {
+    sema_down(&exec.loading);
     if (!exec.load_success) {
-      /*printf("Could not load child\n");*/
       return TID_ERROR;
     }
   }
@@ -164,9 +154,7 @@ process_wait (tid_t child_tid)
   }
   cp->waited = true;
   if (!cp->exited) {
-    /*printf("Waiting on child: %d\n", child_tid);*/
     sema_down(&cp->exited_sema);
-    /*printf("Done waiting on child: %d\n", child_tid);*/
   }
   int status = cp->status;
   list_remove(&cp->elem);
@@ -211,11 +199,9 @@ remove_all_children(void) {
 void
 process_exit (void)
 {
-  child_count--;
   struct thread *cur = thread_current ();
   uint32_t *pd;
-  /*printf("In process exit%d\n", cur->tid);*/
-  file_close(cur->bin_file); // May need to check if file is open first
+  file_close(cur->bin_file);
 
   // close all open files
   struct list_elem *e = list_begin(&cur->open_files);
@@ -587,7 +573,6 @@ setup_stack (const char *cmd_line, void **esp)
 {
   uint8_t *kpage;
   bool success = false;
-  /*printf("Adding %s to stack\n", cmd_line);*/
 
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
@@ -598,7 +583,6 @@ setup_stack (const char *cmd_line, void **esp)
         success = setup_stack_helper(cmd_line, kpage, upage, esp);
       }
       else {
-        /*printf("Could not setup stack!\n\n");*/
         palloc_free_page (kpage);
       }
     }
@@ -614,7 +598,6 @@ setup_stack_helper (const char *cmd_line, uint8_t *kpage, uint8_t *upage,
     int argc = 0;
     char *token, *save_ptr, *cmd_copy;
 
-    /*printf("Adding %s to stack\n\n", cmd_line);*/
     // Push everything onto the stack
     cmd_copy = push(kpage, &ofs, cmd_line, strlen(cmd_line)+1);
     if (cmd_copy == NULL)
