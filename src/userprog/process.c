@@ -214,9 +214,19 @@ process_exit (void)
   child_count--;
   struct thread *cur = thread_current ();
   uint32_t *pd;
-  /* TODO: Need to clean up open files*/
   /*printf("In process exit%d\n", cur->tid);*/
   file_close(cur->bin_file); // May need to check if file is open first
+
+  // close all open files
+  struct list_elem *e = list_begin(&cur->open_files);
+  struct list_elem *next;
+  while (e != list_end(&cur->open_files)) {
+    next = list_next(e);
+    struct FD *fd = list_entry(e, struct FD, fd_elem);
+    list_remove(&fd->fd_elem);
+    free(fd);
+    e = next;
+  }
 
   // remove all children from list and free memory
   remove_all_children();
