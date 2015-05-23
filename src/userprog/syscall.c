@@ -331,9 +331,10 @@ Fd 1 writes to the console. Your code to write to the console should write all o
     }     
 	struct file *file = list_entry(e, struct FD, fd_elem)->file;
     /*printf("Writing file with size: %d\n\n", size);*/
-    int size = file_write(file, buffer, size);
+    int size_written = file_write(file, buffer, size);
+    /*printf("File written with size: %d\n\n", size_written);*/
     lock_release(&sysLock);
-    return size;
+    return size_written;
   }
 }
 
