@@ -35,7 +35,7 @@ static int read (int fd, void *buffer, unsigned size);
 static int filesize (int fd);
 static int open (const char *file);
 struct list_elem* get_file(int fd);
-
+static int get_kernel_ptr(void *uaddr);
 
 void
 syscall_init (void) 
@@ -95,7 +95,8 @@ syscall_handler (struct intr_frame *f)
 			//static bool create (const char *file, unsigned initial_size)
 			copy_in(args, (uint32_t *) f->esp + 1, sizeof *args *2);
 			check_valid_buffer((void *) args[0], (unsigned) args[1]);
-			f->eax = create((const char *) args[0], (unsigned) args[1]);
+			int test = get_kernel_ptr((void *) args[0]);
+			f->eax = create((const char *) test, (unsigned) args[1]);
 			break;
 		}
 		case SYS_REMOVE:
@@ -111,7 +112,8 @@ syscall_handler (struct intr_frame *f)
 			//static int open (const char *file)
 			copy_in(args, (uint32_t *) f->esp + 1, sizeof *args * 1);
 			check_valid_buffer((void *) args[0], 0);
-			f->eax = open((const char *) args[0]);
+			int test = get_kernel_ptr((void *) args[0]);
+			f->eax = open((const char *) test);
 			break;
 		}
 		case SYS_FILESIZE:
@@ -134,7 +136,8 @@ syscall_handler (struct intr_frame *f)
 			//int write (int fd, const void *buffer, unsigned size)
 			copy_in(args, (uint32_t *) f->esp + 1, sizeof *args * 3);
 			check_valid_buffer((void *) args[1], (unsigned) args[2]);
-			f->eax = write(args[0], (const void *) args[1],(unsigned) args[2]);
+			int test = get_kernel_ptr((void *) args[1]);
+			f->eax = write(args[0], (const void *) test ,(unsigned) args[2]);
 			break;
 		}
 		case SYS_SEEK:
@@ -331,9 +334,9 @@ Fd 1 writes to the console. Your code to write to the console should write all o
     }     
 	struct file *file = list_entry(e, struct FD, fd_elem)->file;
     /*printf("Writing file with size: %d\n\n", size);*/
-    int size = file_write(file, buffer, size);
+    int size2 = file_write(file, buffer, size);
     lock_release(&sysLock);
-    return size;
+    return size2;
   }
 }
 
@@ -487,7 +490,6 @@ verify_user (const void *uaddr)
 static void
 check_valid_buffer(const void * one, int size)
 {
-	
 	//check buffer
 //	int i = 0;
 //	for(; i < size + 1; i++)
@@ -495,12 +497,28 @@ check_valid_buffer(const void * one, int size)
 //		if(!verify_user(one + i))
 //			exit(-1);
 //	}
-	
-	//check end points
-	if(!verify_user(one) || !verify_user(one + size))
+//	
+//	//check end points
+//	if(!verify_user(one) || !verify_user(one + size))
+//		exit(-1);
+
+	//check buffer 2.0
+	int i = 0;
+	char * temp = (char *) one;
+	for(; i < size + 1; i++)
 	{
-//		printf("\n\n We are exiting from check valid pointer \n\n");
-		exit(-1);
+		if(!is_user_vaddr((void *) temp) || (void *) temp < ((void *) 0x8048000))
+			exit(-1);
+		temp++;
 	}
 }
-
+static int 
+get_kernel_ptr(void *uaddr)
+{
+	if(!is_user_vaddr(uaddr) || uaddr < ((void*) 0x8048000))
+		exit(-1);
+	void * ptr = pagedir_get_page(thread_current()->pagedir, uaddr);
+	if(!ptr)
+		exit(-1);
+	return (int) ptr;
+}
